@@ -29,6 +29,36 @@ pub struct ProjectConfig {
     pub tag_definitions: Vec<TagDef>,
 }
 
+impl Default for DisplayConfig {
+    fn default() -> Self {
+        Self {
+            edge_labels: true,
+            edge_colors: true,
+            relation_nodes: true,
+        }
+    }
+}
+
+impl Default for ProjectConfig {
+    fn default() -> Self {
+        Self {
+            edge_annotations: vec![
+                AnnotationDef { label: "supports".into(), color: "#22c55e".into() },
+                AnnotationDef { label: "contradicts".into(), color: "#ef4444".into() },
+                AnnotationDef { label: "requires".into(), color: "#f59e0b".into() },
+                AnnotationDef { label: "refines".into(), color: "#3b82f6".into() },
+                AnnotationDef { label: "exemplifies".into(), color: "#a855f7".into() },
+            ],
+            display: DisplayConfig::default(),
+            tag_definitions: vec![
+                TagDef { name: "well-established".into() },
+                TagDef { name: "tentative".into() },
+                TagDef { name: "speculative".into() },
+            ],
+        }
+    }
+}
+
 impl ProjectConfig {
     /// Parse a `config.yaml` string into a `ProjectConfig`.
     pub fn from_yaml(yaml: &str) -> Result<Self, crate::error::Error> {

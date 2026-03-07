@@ -12,4 +12,7 @@ pub enum Error {
 
     #[error("type constraint violation: {0}")]
     TypeConstraint(String),
+
+    #[error("invalid project: {0}")]
+    InvalidProject(String),
 }
