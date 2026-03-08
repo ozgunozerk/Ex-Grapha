@@ -15,4 +15,13 @@ pub enum Error {
 
     #[error("invalid project: {0}")]
     InvalidProject(String),
+
+    #[error("node not found: {0}")]
+    NodeNotFound(String),
+
+    #[error("cannot delete node `{node_id}`: depended on by {dependents:?}")]
+    DeletionBlocked {
+        node_id: String,
+        dependents: Vec<String>,
+    },
 }
