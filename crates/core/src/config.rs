@@ -43,17 +43,38 @@ impl Default for ProjectConfig {
     fn default() -> Self {
         Self {
             edge_annotations: vec![
-                AnnotationDef { label: "supports".into(), color: "#22c55e".into() },
-                AnnotationDef { label: "contradicts".into(), color: "#ef4444".into() },
-                AnnotationDef { label: "requires".into(), color: "#f59e0b".into() },
-                AnnotationDef { label: "refines".into(), color: "#3b82f6".into() },
-                AnnotationDef { label: "exemplifies".into(), color: "#a855f7".into() },
+                AnnotationDef {
+                    label: "supports".into(),
+                    color: "#22c55e".into(),
+                },
+                AnnotationDef {
+                    label: "contradicts".into(),
+                    color: "#ef4444".into(),
+                },
+                AnnotationDef {
+                    label: "requires".into(),
+                    color: "#f59e0b".into(),
+                },
+                AnnotationDef {
+                    label: "refines".into(),
+                    color: "#3b82f6".into(),
+                },
+                AnnotationDef {
+                    label: "exemplifies".into(),
+                    color: "#a855f7".into(),
+                },
             ],
             display: DisplayConfig::default(),
             tag_definitions: vec![
-                TagDef { name: "well-established".into() },
-                TagDef { name: "tentative".into() },
-                TagDef { name: "speculative".into() },
+                TagDef {
+                    name: "well-established".into(),
+                },
+                TagDef {
+                    name: "tentative".into(),
+                },
+                TagDef {
+                    name: "speculative".into(),
+                },
             ],
         }
     }

@@ -46,39 +46,35 @@ impl KnowledgeBase {
 
 // ── Init ───────────────────────────────────────────────────
 
+/// Options for scaffolding a new knowledge base project.
+#[derive(Debug, Clone, Default)]
+pub struct InitOptions {
+    /// Create `.knowledgebase/hooks/validate.sh` (generic git pre-commit hook).
+    pub include_git_hook: bool,
+    /// Create `.github/workflows/validate.yaml` (GitHub Actions CI workflow).
+    pub include_github_workflow: bool,
+}
+
 /// Scaffold a new knowledge base project at `path`.
 ///
 /// Creates the directory layout with sensible defaults and returns
 /// a `KnowledgeBase` ready for use.
-pub fn init_project(path: &Path) -> Result<KnowledgeBase, Error> {
+pub fn init_project(path: &Path, options: &InitOptions) -> Result<KnowledgeBase, Error> {
     if path.join(".knowledgebase").exists() {
         return Err(Error::InvalidProject(
             "directory already contains a .knowledgebase folder".into(),
         ));
     }
 
-    // Create directory structure
+    // Create core directory structure (always present)
     fs::create_dir_all(path.join("nodes"))?;
     fs::create_dir_all(path.join("assets"))?;
-    fs::create_dir_all(path.join(".knowledgebase/hooks"))?;
-    fs::create_dir_all(path.join(".github/workflows"))?;
+    fs::create_dir_all(path.join(".knowledgebase"))?;
 
     // Write default config
     let config = ProjectConfig::default();
     let config_yaml = config.to_yaml()?;
     fs::write(path.join(".knowledgebase/config.yaml"), &config_yaml)?;
-
-    // Write pre-commit hook placeholder
-    fs::write(
-        path.join(".knowledgebase/hooks/validate.sh"),
-        VALIDATE_SH_TEMPLATE,
-    )?;
-
-    // Write GitHub Action workflow placeholder
-    fs::write(
-        path.join(".github/workflows/validate.yaml"),
-        VALIDATE_YAML_TEMPLATE,
-    )?;
 
     // Write README
     fs::write(
@@ -89,9 +85,25 @@ pub fn init_project(path: &Path) -> Result<KnowledgeBase, Error> {
     // Write .gitignore
     fs::write(path.join(".gitignore"), KB_GITIGNORE)?;
 
-    let root = path
-        .canonicalize()
-        .unwrap_or_else(|_| path.to_path_buf());
+    // Optional: git pre-commit hook
+    if options.include_git_hook {
+        fs::create_dir_all(path.join(".knowledgebase/hooks"))?;
+        fs::write(
+            path.join(".knowledgebase/hooks/validate.sh"),
+            VALIDATE_SH_TEMPLATE,
+        )?;
+    }
+
+    // Optional: GitHub Actions workflow
+    if options.include_github_workflow {
+        fs::create_dir_all(path.join(".github/workflows"))?;
+        fs::write(
+            path.join(".github/workflows/validate.yaml"),
+            VALIDATE_YAML_TEMPLATE,
+        )?;
+    }
+
+    let root = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
 
     Ok(KnowledgeBase {
         root,
@@ -116,9 +128,7 @@ pub fn open_project(path: &Path) -> Result<(KnowledgeBase, Vec<LoadWarning>), Er
     // Validate required structure
     let nodes_dir = root.join("nodes");
     if !nodes_dir.is_dir() {
-        return Err(Error::InvalidProject(
-            "missing `nodes/` directory".into(),
-        ));
+        return Err(Error::InvalidProject("missing `nodes/` directory".into()));
     }
 
     let config_path = root.join(".knowledgebase/config.yaml");
@@ -138,11 +148,7 @@ pub fn open_project(path: &Path) -> Result<(KnowledgeBase, Vec<LoadWarning>), Er
 
     let entries: Vec<_> = fs::read_dir(&nodes_dir)?
         .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.path()
-                .extension()
-                .is_some_and(|ext| ext == "md")
-        })
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "md"))
         .collect();
 
     for entry in entries {

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use ex_grapha_core::project::{self, KnowledgeBase, LoadWarning};
+use ex_grapha_core::project::{self, InitOptions, KnowledgeBase, LoadWarning};
 use tauri::State;
 
 /// Shared application state: the currently open knowledge base (if any).
@@ -36,9 +36,18 @@ impl From<LoadWarning> for WarningDto {
 }
 
 #[tauri::command]
-fn init_project(path: String, state: State<'_, AppState>) -> Result<InitResult, String> {
+fn init_project(
+    path: String,
+    include_git_hook: bool,
+    include_github_workflow: bool,
+    state: State<'_, AppState>,
+) -> Result<InitResult, String> {
     let p = PathBuf::from(&path);
-    let kb = project::init_project(&p).map_err(|e| e.to_string())?;
+    let options = InitOptions {
+        include_git_hook,
+        include_github_workflow,
+    };
+    let kb = project::init_project(&p, &options).map_err(|e| e.to_string())?;
     let root = kb.root.clone();
     *state.kb.lock().unwrap() = Some(kb);
     Ok(InitResult { root })

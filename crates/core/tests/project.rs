@@ -1,32 +1,44 @@
 mod common;
 
-use ex_grapha_core::project::{init_project, open_project};
+use ex_grapha_core::project::{init_project, open_project, InitOptions};
 use std::fs;
 
 /// Create a unique temp directory for each test.
 fn temp_dir(name: &str) -> std::path::PathBuf {
-    let dir = std::env::temp_dir()
-        .join("ex-grapha-tests")
-        .join(name);
+    let dir = std::env::temp_dir().join("ex-grapha-tests").join(name);
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
 }
 
-// ── init_project ───────────────────────────────────────────
+/// Default options: no git integration files.
+const DEFAULTS: InitOptions = InitOptions {
+    include_git_hook: false,
+    include_github_workflow: false,
+};
+
+/// All optional files enabled.
+const ALL_OPTIONS: InitOptions = InitOptions {
+    include_git_hook: true,
+    include_github_workflow: true,
+};
+
+// ── init_project (core structure, no git files) ────────────
 
 #[test]
-fn init_creates_directory_structure() {
-    let dir = temp_dir("init-structure");
-    let kb = init_project(&dir).unwrap();
+fn init_creates_core_structure() {
+    let dir = temp_dir("init-core");
+    let kb = init_project(&dir, &DEFAULTS).unwrap();
 
     assert!(dir.join("nodes").is_dir());
     assert!(dir.join("assets").is_dir());
     assert!(dir.join(".knowledgebase/config.yaml").is_file());
-    assert!(dir.join(".knowledgebase/hooks/validate.sh").is_file());
-    assert!(dir.join(".github/workflows/validate.yaml").is_file());
     assert!(dir.join("README.md").is_file());
     assert!(dir.join(".gitignore").is_file());
+
+    // Git files should NOT be created
+    assert!(!dir.join(".knowledgebase/hooks").exists());
+    assert!(!dir.join(".github").exists());
 
     assert!(kb.nodes.is_empty());
     assert!(kb.dependents.is_empty());
@@ -37,7 +49,7 @@ fn init_creates_directory_structure() {
 #[test]
 fn init_writes_default_config() {
     let dir = temp_dir("init-config");
-    let kb = init_project(&dir).unwrap();
+    let kb = init_project(&dir, &DEFAULTS).unwrap();
 
     assert_eq!(kb.config.edge_annotations.len(), 5);
     assert_eq!(kb.config.edge_annotations[0].label, "supports");
@@ -55,10 +67,9 @@ fn init_writes_default_config() {
 #[test]
 fn init_rejects_existing_project() {
     let dir = temp_dir("init-exists");
-    init_project(&dir).unwrap();
+    init_project(&dir, &DEFAULTS).unwrap();
 
-    // Second init should fail
-    let err = init_project(&dir).unwrap_err();
+    let err = init_project(&dir, &DEFAULTS).unwrap_err();
     assert!(err.to_string().contains("already contains"));
 
     let _ = fs::remove_dir_all(&dir);
@@ -67,10 +78,53 @@ fn init_rejects_existing_project() {
 #[test]
 fn init_gitignore_contains_positions() {
     let dir = temp_dir("init-gitignore");
-    init_project(&dir).unwrap();
+    init_project(&dir, &DEFAULTS).unwrap();
 
     let content = fs::read_to_string(dir.join(".gitignore")).unwrap();
     assert!(content.contains(".positions.json"));
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+// ── init_project (optional git files) ──────────────────────
+
+#[test]
+fn init_with_git_hook_only() {
+    let dir = temp_dir("init-hook-only");
+    let opts = InitOptions {
+        include_git_hook: true,
+        include_github_workflow: false,
+    };
+    init_project(&dir, &opts).unwrap();
+
+    assert!(dir.join(".knowledgebase/hooks/validate.sh").is_file());
+    assert!(!dir.join(".github").exists());
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn init_with_github_workflow_only() {
+    let dir = temp_dir("init-workflow-only");
+    let opts = InitOptions {
+        include_git_hook: false,
+        include_github_workflow: true,
+    };
+    init_project(&dir, &opts).unwrap();
+
+    assert!(!dir.join(".knowledgebase/hooks").exists());
+    assert!(dir.join(".github/workflows/validate.yaml").is_file());
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn init_with_all_options() {
+    let dir = temp_dir("init-all");
+    init_project(&dir, &ALL_OPTIONS).unwrap();
+
+    assert!(dir.join(".knowledgebase/hooks/validate.sh").is_file());
+    assert!(dir.join(".github/workflows/validate.yaml").is_file());
 
     let _ = fs::remove_dir_all(&dir);
 }
@@ -80,7 +134,7 @@ fn init_gitignore_contains_positions() {
 #[test]
 fn open_empty_project() {
     let dir = temp_dir("open-empty");
-    init_project(&dir).unwrap();
+    init_project(&dir, &DEFAULTS).unwrap();
 
     let (kb, warnings) = open_project(&dir).unwrap();
     assert!(kb.nodes.is_empty());
@@ -92,9 +146,8 @@ fn open_empty_project() {
 #[test]
 fn open_project_loads_nodes() {
     let dir = temp_dir("open-nodes");
-    init_project(&dir).unwrap();
+    init_project(&dir, &DEFAULTS).unwrap();
 
-    // Write two node files
     fs::write(dir.join("nodes/n-4a7b2c.md"), common::AXIOM_FILE).unwrap();
     fs::write(dir.join("nodes/n-7c1d3e.md"), common::DEDUCTION_FILE).unwrap();
 
@@ -110,7 +163,7 @@ fn open_project_loads_nodes() {
 #[test]
 fn open_project_builds_adjacency() {
     let dir = temp_dir("open-adjacency");
-    init_project(&dir).unwrap();
+    init_project(&dir, &DEFAULTS).unwrap();
 
     fs::write(dir.join("nodes/n-4a7b2c.md"), common::AXIOM_FILE).unwrap();
     fs::write(dir.join("nodes/n-7c1d3e.md"), common::DEDUCTION_FILE).unwrap();
@@ -131,20 +184,14 @@ fn open_project_builds_adjacency() {
 #[test]
 fn open_project_collects_warnings_for_malformed_files() {
     let dir = temp_dir("open-warnings");
-    init_project(&dir).unwrap();
+    init_project(&dir, &DEFAULTS).unwrap();
 
-    // Write a valid node
     fs::write(dir.join("nodes/n-4a7b2c.md"), common::AXIOM_FILE).unwrap();
-    // Write a malformed node
     fs::write(dir.join("nodes/n-bad000.md"), "not valid frontmatter").unwrap();
 
     let (kb, warnings) = open_project(&dir).unwrap();
-
-    // The valid node was loaded
     assert_eq!(kb.nodes.len(), 1);
     assert!(kb.nodes.contains_key("n-4a7b2c"));
-
-    // The malformed node produced a warning
     assert_eq!(warnings.len(), 1);
     assert!(warnings[0].path.ends_with("n-bad000.md"));
 
@@ -154,7 +201,7 @@ fn open_project_collects_warnings_for_malformed_files() {
 #[test]
 fn open_project_ignores_non_md_files() {
     let dir = temp_dir("open-non-md");
-    init_project(&dir).unwrap();
+    init_project(&dir, &DEFAULTS).unwrap();
 
     fs::write(dir.join("nodes/n-4a7b2c.md"), common::AXIOM_FILE).unwrap();
     fs::write(dir.join("nodes/notes.txt"), "just a text file").unwrap();
@@ -172,8 +219,10 @@ fn open_project_ignores_non_md_files() {
 fn open_missing_nodes_dir() {
     let dir = temp_dir("open-no-nodes");
     fs::create_dir_all(dir.join(".knowledgebase")).unwrap();
-    fs::write(dir.join(".knowledgebase/config.yaml"), "edge_annotations: []\ndisplay:\n  edge_labels: true\n  edge_colors: true\n  relation_nodes: true\ntag_definitions: []\n").unwrap();
-    // No nodes/ directory
+    fs::write(
+        dir.join(".knowledgebase/config.yaml"),
+        "edge_annotations: []\ndisplay:\n  edge_labels: true\n  edge_colors: true\n  relation_nodes: true\ntag_definitions: []\n",
+    ).unwrap();
 
     let err = open_project(&dir).unwrap_err();
     assert!(err.to_string().contains("nodes/"));
@@ -185,7 +234,6 @@ fn open_missing_nodes_dir() {
 fn open_missing_config() {
     let dir = temp_dir("open-no-config");
     fs::create_dir_all(dir.join("nodes")).unwrap();
-    // No .knowledgebase/config.yaml
 
     let err = open_project(&dir).unwrap_err();
     assert!(err.to_string().contains("config.yaml"));
@@ -209,7 +257,7 @@ fn open_nonexistent_path() {
 #[test]
 fn init_then_open_round_trips() {
     let dir = temp_dir("init-then-open");
-    let kb_init = init_project(&dir).unwrap();
+    let kb_init = init_project(&dir, &DEFAULTS).unwrap();
 
     let (kb_open, warnings) = open_project(&dir).unwrap();
     assert!(warnings.is_empty());
