@@ -8,9 +8,9 @@ tags:
   - \"well-established\"
 status: \"current\"
 status_updated_at: \"2026-03-04T14:30:00Z\"
-status_updated_by: \"github-username\"
+status_updated_by: \"alice\"
 created_at: \"2026-02-15T10:00:00Z\"
-created_by: \"github-username\"
+created_by: \"alice\"
 dependencies: []
 ---
 
@@ -34,7 +34,7 @@ stale_sources:
   - node_id: \"n-4a7b2c\"
     changed_at: \"2026-03-04T14:30:00Z\"
 created_at: \"2026-02-20T09:00:00Z\"
-created_by: \"github-username\"
+created_by: \"alice\"
 dependencies:
   - node_id: \"n-4a7b2c\"
     annotation:

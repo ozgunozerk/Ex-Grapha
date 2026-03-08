@@ -12,10 +12,12 @@ pub fn parse_node(input: &str) -> Result<Node, Error> {
     }
 
     // Skip past the opening "---\n"
-    let after_opening = if input.starts_with("---\r\n") {
-        &input[5..]
+    let after_opening = if let Some(rest) = input.strip_prefix("---\r\n") {
+        rest
+    } else if let Some(rest) = input.strip_prefix("---\n") {
+        rest
     } else {
-        &input[4..]
+        unreachable!() // already checked above
     };
 
     // Find the closing "---" that sits on its own line.
@@ -100,5 +102,8 @@ fn find_closing_delimiter(haystack: &str) -> Result<usize, Error> {
 
 /// Find the next `\n` byte starting from `from`.
 fn memchr_newline(bytes: &[u8], from: usize) -> Option<usize> {
-    bytes[from..].iter().position(|&b| b == b'\n').map(|i| from + i)
+    bytes[from..]
+        .iter()
+        .position(|&b| b == b'\n')
+        .map(|i| from + i)
 }

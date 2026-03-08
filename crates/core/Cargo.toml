@@ -7,3 +7,4 @@ edition = "2021"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 thiserror = "2"
+whoami = "1"

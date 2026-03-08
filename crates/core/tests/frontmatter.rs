@@ -17,15 +17,17 @@ fn parse_axiom_node() {
     assert_eq!(fm.tags, vec!["physics", "well-established"]);
     assert_eq!(fm.status, Status::Current);
     assert_eq!(fm.status_updated_at, "2026-03-04T14:30:00Z");
-    assert_eq!(fm.status_updated_by, "github-username");
+    assert_eq!(fm.status_updated_by, "alice");
     assert!(fm.stale_sources.is_empty());
     assert_eq!(fm.created_at, "2026-02-15T10:00:00Z");
-    assert_eq!(fm.created_by, "github-username");
+    assert_eq!(fm.created_by, "alice");
     assert!(fm.dependencies.is_empty());
     assert!(fm.relation.is_none());
 
     assert!(node.content.contains("# Conservation of Energy"));
-    assert!(node.content.contains("Energy cannot be created or destroyed"));
+    assert!(node
+        .content
+        .contains("Energy cannot be created or destroyed"));
 }
 
 #[test]
@@ -197,8 +199,7 @@ Body.
 
 #[test]
 fn bom_is_stripped() {
-    let input = format!(
-        "\u{feff}---\n\
+    let input = "\u{feff}---\n\
          id: \"n-000000\"\n\
          title: \"BOM\"\n\
          type: \"axiom\"\n\
@@ -210,9 +211,8 @@ fn bom_is_stripped() {
          created_by: \"test\"\n\
          dependencies: []\n\
          ---\n\
-         Content.\n"
-    );
-    let node = parse_node(&input).unwrap();
+         Content.\n";
+    let node = parse_node(input).unwrap();
     assert_eq!(node.frontmatter.id, "n-000000");
 }
 
