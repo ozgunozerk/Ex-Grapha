@@ -1,7 +1,6 @@
 mod common;
 
-use ex_grapha_core::frontmatter::parse_node;
-use ex_grapha_core::model::*;
+use ex_grapha_core::{frontmatter::parse_node, model::*};
 
 #[test]
 fn axiom_validates_ok() {

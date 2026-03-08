@@ -1,11 +1,15 @@
-use std::collections::{HashMap, HashSet};
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+    path::{Path, PathBuf},
+};
 
-use crate::config::ProjectConfig;
-use crate::error::Error;
-use crate::frontmatter;
-use crate::model::{Node, NodeId};
+use crate::{
+    config::ProjectConfig,
+    error::Error,
+    frontmatter,
+    model::{Node, NodeId},
+};
 
 /// A warning produced while loading a project (e.g., a malformed node file).
 #[derive(Debug, Clone)]

@@ -1,7 +1,8 @@
 mod common;
 
-use ex_grapha_core::project::{init_project, open_project, InitOptions};
 use std::fs;
+
+use ex_grapha_core::project::{init_project, open_project, InitOptions};
 
 /// Create a unique temp directory for each test.
 fn temp_dir(name: &str) -> std::path::PathBuf {
@@ -170,8 +171,8 @@ fn open_project_builds_adjacency() {
 
     let (kb, _) = open_project(&dir).unwrap();
 
-    // n-7c1d3e depends on n-4a7b2c and n-3f8a1d (the latter doesn't exist as a file,
-    // but the adjacency map still records the relationship)
+    // n-7c1d3e depends on n-4a7b2c and n-3f8a1d (the latter doesn't exist as a
+    // file, but the adjacency map still records the relationship)
     let deps_of_4a7b2c = kb.dependents.get("n-4a7b2c").unwrap();
     assert!(deps_of_4a7b2c.contains("n-7c1d3e"));
 

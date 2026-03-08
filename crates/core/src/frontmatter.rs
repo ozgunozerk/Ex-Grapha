@@ -1,6 +1,9 @@
-use crate::error::Error;
-use crate::model::{Node, NodeFrontmatter};
 use std::path::Path;
+
+use crate::{
+    error::Error,
+    model::{Node, NodeFrontmatter},
+};
 
 /// Parse a node `.md` file (YAML frontmatter + markdown body) into a `Node`.
 pub fn parse_node(input: &str) -> Result<Node, Error> {
