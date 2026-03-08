@@ -1,6 +1,6 @@
 mod common;
 
-use ex_grapha_core::{error::Error, frontmatter::*, model::*};
+use ex_grapha_core::{error::Error, model::*, node_parser::*};
 
 // ── Parsing ────────────────────────────────────────────────
 

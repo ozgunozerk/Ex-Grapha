@@ -1,3 +1,5 @@
+//! Error types for the core library.
+
 /// Errors produced by the core library.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -24,4 +26,13 @@ pub enum Error {
         node_id: String,
         dependents: Vec<String>,
     },
+
+    #[error("cycle detected: {path:?}")]
+    CycleDetected { path: Vec<String> },
+
+    #[error("edge not found: {from} -> {to}")]
+    EdgeNotFound { from: String, to: String },
+
+    #[error("edge already exists: {from} -> {to}")]
+    EdgeAlreadyExists { from: String, to: String },
 }

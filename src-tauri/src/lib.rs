@@ -1,8 +1,9 @@
 use std::{path::PathBuf, sync::Mutex};
 
 use ex_grapha_core::{
-    model::{Dependency, Node, NodeType},
-    project::{self, InitOptions, KnowledgeBase, LoadWarning, NodeParams},
+    model::{Dependency, EdgeAnnotation, Node, NodeType},
+    node::NodeParams,
+    project::{self, InitOptions, KnowledgeBase, LoadWarning},
 };
 use tauri::State;
 
@@ -70,6 +71,12 @@ struct NodeDto {
 struct DependencyDto {
     node_id: String,
     annotation: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct EdgeDeletionCheckDto {
+    is_last_dependency: bool,
+    node_title: String,
 }
 
 impl From<&Node> for NodeDto {
@@ -209,6 +216,77 @@ fn delete_node(id: String, state: State<'_, AppState>) -> Result<(), String> {
     with_kb(&state, |kb| kb.delete_node(&id).map_err(|e| e.to_string()))
 }
 
+// ── Edge CRUD commands ────────────────────────────────────
+
+#[tauri::command]
+fn create_edge(
+    dependent_id: String,
+    dependency_id: String,
+    annotation: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    with_kb(&state, |kb| {
+        let ann = annotation.map(|label| EdgeAnnotation { label });
+        kb.create_edge(&dependent_id, &dependency_id, ann)
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn validate_edge_deletion(
+    dependent_id: String,
+    dependency_id: String,
+    state: State<'_, AppState>,
+) -> Result<EdgeDeletionCheckDto, String> {
+    with_kb(&state, |kb| {
+        let check = kb
+            .validate_edge_deletion(&dependent_id, &dependency_id)
+            .map_err(|e| e.to_string())?;
+        Ok(EdgeDeletionCheckDto {
+            is_last_dependency: check.is_last_dependency,
+            node_title: check.node_title,
+        })
+    })
+}
+
+#[tauri::command]
+fn delete_edge(
+    dependent_id: String,
+    dependency_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    with_kb(&state, |kb| {
+        kb.delete_edge(&dependent_id, &dependency_id)
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn remove_dependency_and_convert_to_axiom(
+    dependent_id: String,
+    dependency_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    with_kb(&state, |kb| {
+        kb.remove_dependency_and_convert_to_axiom(&dependent_id, &dependency_id)
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn update_edge_annotation(
+    dependent_id: String,
+    dependency_id: String,
+    annotation: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    with_kb(&state, |kb| {
+        let ann = annotation.map(|label| EdgeAnnotation { label });
+        kb.update_edge_annotation(&dependent_id, &dependency_id, ann)
+            .map_err(|e| e.to_string())
+    })
+}
+
 // ── App entry ─────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -224,6 +302,11 @@ pub fn run() {
             get_node,
             update_node,
             delete_node,
+            create_edge,
+            validate_edge_deletion,
+            delete_edge,
+            remove_dependency_and_convert_to_axiom,
+            update_edge_annotation,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

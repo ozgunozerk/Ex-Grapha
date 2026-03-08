@@ -1,3 +1,5 @@
+//! Parse and serialize node `.md` files (YAML frontmatter + markdown body).
+
 use std::path::Path;
 
 use crate::{
