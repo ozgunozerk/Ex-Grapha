@@ -19,7 +19,8 @@ pub enum Status {
     Stale,
 }
 
-/// An optional label on an edge (color is resolved from project config at display time).
+/// An optional label on an edge (color is resolved from project config at
+/// display time).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EdgeAnnotation {
     pub label: String,

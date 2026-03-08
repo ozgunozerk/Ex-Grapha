@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-use std::sync::Mutex;
+use std::{path::PathBuf, sync::Mutex};
 
 use ex_grapha_core::project::{self, InitOptions, KnowledgeBase, LoadWarning};
 use tauri::State;

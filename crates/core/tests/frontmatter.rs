@@ -1,8 +1,6 @@
 mod common;
 
-use ex_grapha_core::error::Error;
-use ex_grapha_core::frontmatter::*;
-use ex_grapha_core::model::*;
+use ex_grapha_core::{error::Error, frontmatter::*, model::*};
 
 // ── Parsing ────────────────────────────────────────────────
 
