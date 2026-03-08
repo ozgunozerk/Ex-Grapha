@@ -1,3 +1,6 @@
+//! Project-level configuration (`config.yaml`): edge annotations, tags, display
+//! toggles.
+
 use serde::{Deserialize, Serialize};
 
 /// A project-level edge annotation definition (label + display color).

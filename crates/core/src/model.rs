@@ -1,3 +1,5 @@
+//! Core data types: nodes, edges, frontmatter, and type constraints.
+
 use serde::{Deserialize, Serialize};
 
 /// Node identifier, e.g., `"n-4a7b2c"`.

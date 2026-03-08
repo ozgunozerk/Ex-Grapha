@@ -1,3 +1,5 @@
+//! Utility helpers: node ID generation, timestamps, OS username.
+
 use rand::Rng;
 
 use crate::model::NodeId;

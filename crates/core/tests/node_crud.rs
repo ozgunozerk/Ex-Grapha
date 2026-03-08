@@ -3,7 +3,8 @@ use std::fs;
 use ex_grapha_core::{
     error::Error,
     model::{Dependency, EdgeAnnotation, NodeType},
-    project::{init_project, InitOptions, NodeParams},
+    node::NodeParams,
+    project::{init_project, InitOptions},
 };
 
 /// Default options: no git integration files.
@@ -224,7 +225,7 @@ fn update_node_title_and_content() {
 
     // Verify on disk
     let on_disk =
-        ex_grapha_core::frontmatter::read_node_file(&dir.join(format!("nodes/{id}.md"))).unwrap();
+        ex_grapha_core::node_parser::read_node_file(&dir.join(format!("nodes/{id}.md"))).unwrap();
     assert_eq!(on_disk.frontmatter.title, "Updated Title");
 
     let _ = fs::remove_dir_all(&dir);
