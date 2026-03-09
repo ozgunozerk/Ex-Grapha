@@ -29,31 +29,73 @@ pub struct KnowledgeBase {
     pub config: ProjectConfig,
     /// All loaded nodes, keyed by their ID.
     pub nodes: HashMap<NodeId, Node>,
-    /// Adjacency map: for a given node ID, the set of nodes that depend on it.
-    /// (dependency → its dependents). Used for staleness propagation.
-    pub dependents: HashMap<NodeId, HashSet<NodeId>>,
+    /// Reverse dependency map: `depend_on[A] = {B, C}` means B and C depend on
+    /// A. Used for staleness propagation and deletion blocking.
+    pub depend_on: HashMap<NodeId, HashSet<NodeId>>,
+    /// Transitive dependency sets: `transitive_deps[A]` = all nodes that A
+    /// (transitively) depends on. In-memory only, used for O(1) cycle
+    /// detection.
+    pub(crate) transitive_deps: HashMap<NodeId, HashSet<NodeId>>,
 }
 
 impl KnowledgeBase {
-    /// Rebuild the `dependents` adjacency map from the current node set.
-    pub fn rebuild_adjacency(&mut self) {
-        self.dependents.clear();
+    /// Rebuild `depend_on` and `transitive_deps` from the current node set.
+    pub fn rebuild_indexes(&mut self) {
+        // Rebuild depend_on (reverse dependency map).
+        self.depend_on.clear();
         for node in self.nodes.values() {
             let dependent_id = &node.frontmatter.id;
             for dep in &node.frontmatter.dependencies {
-                self.dependents
+                self.depend_on
                     .entry(dep.node_id.clone())
                     .or_default()
                     .insert(dependent_id.clone());
             }
         }
+
+        // Rebuild transitive_deps via memoized DFS.
+        self.transitive_deps.clear();
+        let ids: Vec<NodeId> = self.nodes.keys().cloned().collect();
+        for id in ids {
+            self.compute_transitive_deps(&id);
+        }
+    }
+
+    /// Recursively compute transitive deps for `node_id`, caching results.
+    fn compute_transitive_deps(&mut self, node_id: &str) -> HashSet<NodeId> {
+        if let Some(cached) = self.transitive_deps.get(node_id) {
+            return cached.clone();
+        }
+
+        let direct_deps: Vec<NodeId> = self
+            .nodes
+            .get(node_id)
+            .map(|n| {
+                n.frontmatter
+                    .dependencies
+                    .iter()
+                    .map(|d| d.node_id.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let mut result = HashSet::new();
+        for dep_id in &direct_deps {
+            result.insert(dep_id.clone());
+            let sub = self.compute_transitive_deps(dep_id);
+            result.extend(sub);
+        }
+
+        self.transitive_deps
+            .insert(node_id.to_string(), result.clone());
+        result
     }
 }
 
 // ── Init ───────────────────────────────────────────────────
 
 /// Options for scaffolding a new knowledge base project.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Deserialize)]
 pub struct InitOptions {
     /// Create `.knowledgebase/hooks/validate.sh` (generic git pre-commit hook).
     pub include_git_hook: bool,
@@ -115,7 +157,8 @@ pub fn init_project(path: &Path, options: &InitOptions) -> Result<KnowledgeBase,
         root,
         config,
         nodes: HashMap::new(),
-        dependents: HashMap::new(),
+        depend_on: HashMap::new(),
+        transitive_deps: HashMap::new(),
     })
 }
 
@@ -176,9 +219,10 @@ pub fn open_project(path: &Path) -> Result<(KnowledgeBase, Vec<LoadWarning>), Er
         root,
         config,
         nodes,
-        dependents: HashMap::new(),
+        depend_on: HashMap::new(),
+        transitive_deps: HashMap::new(),
     };
-    kb.rebuild_adjacency();
+    kb.rebuild_indexes();
 
     Ok((kb, warnings))
 }

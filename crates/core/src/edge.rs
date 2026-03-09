@@ -22,32 +22,19 @@ impl KnowledgeBase {
     // ── Edge CRUD ─────────────────────────────────────────
 
     /// Check whether adding an edge `dependent → dependency` would create a
-    /// cycle. Uses BFS from `dependent` through the `dependents` adjacency
-    /// map: if `dependency` is reachable, the new edge would close a cycle.
+    /// cycle. O(1) check using transitive dependency sets: if `dependent` is
+    /// already in `dependency`'s transitive deps, adding the edge would close
+    /// a cycle.
     fn would_create_cycle(&self, dependency_id: &str, dependent_id: &str) -> bool {
         if dependency_id == dependent_id {
             return true;
         }
 
-        let mut visited = HashSet::new();
-        let mut queue = VecDeque::new();
-        queue.push_back(dependent_id.to_string());
-        visited.insert(dependent_id.to_string());
-
-        while let Some(current) = queue.pop_front() {
-            if let Some(downstream) = self.dependents.get(&current) {
-                for next in downstream {
-                    if next == dependency_id {
-                        return true;
-                    }
-                    if visited.insert(next.clone()) {
-                        queue.push_back(next.clone());
-                    }
-                }
-            }
-        }
-
-        false
+        // If dependency transitively depends on dependent, adding
+        // dependent → dependency would create a cycle.
+        self.transitive_deps
+            .get(dependency_id)
+            .is_some_and(|deps: &HashSet<String>| deps.contains(dependent_id))
     }
 
     /// Add a dependency edge: `dependent` depends on `dependency`.
@@ -82,11 +69,7 @@ impl KnowledgeBase {
         // Cycle detection.
         if self.would_create_cycle(dependency_id, dependent_id) {
             return Err(Error::CycleDetected {
-                path: vec![
-                    dependent_id.to_string(),
-                    dependency_id.to_string(),
-                    dependent_id.to_string(),
-                ],
+                path: vec![dependent_id.to_string(), dependency_id.to_string()],
             });
         }
 
@@ -100,7 +83,46 @@ impl KnowledgeBase {
         let file_path = self.root.join(format!("nodes/{dependent_id}.md"));
         node_parser::write_node_file(&file_path, node)?;
 
-        self.rebuild_adjacency();
+        // --- Incremental index update (no full rebuild) ---
+        //
+        // We just added: dependent → dependency.
+        //
+        // 1. Record in the reverse dep map: dependency is now depended on by dependent.
+        self.depend_on
+            .entry(dependency_id.to_string())
+            .or_default()
+            .insert(dependent_id.to_string());
+
+        // 2. Collect the set of transitive deps that the *dependent* just gained
+        //    through this new edge. That set is: { dependency } ∪
+        //    transitive_deps[dependency] (i.e. the dependency itself, plus everything
+        //    *it* transitively depends on).
+        let mut gained = HashSet::new();
+        gained.insert(dependency_id.to_string());
+        if let Some(sub) = self.transitive_deps.get(dependency_id).cloned() {
+            gained.extend(sub);
+        }
+
+        // 3. Propagate `gained` into the dependent's transitive_deps, and then into
+        //    every node that transitively depend on the dependent). We use BFS and stop
+        //    propagation along any branch where nothing new was actually added
+        //    (fixed-point).
+        let mut queue = VecDeque::new();
+        queue.push_back(dependent_id.to_string());
+        while let Some(current) = queue.pop_front() {
+            let entry = self.transitive_deps.entry(current.clone()).or_default();
+            let before_len = entry.len();
+            entry.extend(gained.iter().cloned());
+            // Only continue downstream if this node's set actually grew.
+            if entry.len() > before_len {
+                if let Some(downstream) = self.depend_on.get(&current) {
+                    for next in downstream {
+                        queue.push_back(next.clone());
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -156,7 +178,7 @@ impl KnowledgeBase {
         let file_path = self.root.join(format!("nodes/{dependent_id}.md"));
         node_parser::write_node_file(&file_path, node)?;
 
-        self.rebuild_adjacency();
+        self.rebuild_indexes();
         Ok(())
     }
 
@@ -191,7 +213,7 @@ impl KnowledgeBase {
         let file_path = self.root.join(format!("nodes/{dependent_id}.md"));
         node_parser::write_node_file(&file_path, node)?;
 
-        self.rebuild_adjacency();
+        self.rebuild_indexes();
         Ok(())
     }
 

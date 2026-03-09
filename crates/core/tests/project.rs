@@ -42,7 +42,7 @@ fn init_creates_core_structure() {
     assert!(!dir.join(".github").exists());
 
     assert!(kb.nodes.is_empty());
-    assert!(kb.dependents.is_empty());
+    assert!(kb.depend_on.is_empty());
 
     let _ = fs::remove_dir_all(&dir);
 }
@@ -162,8 +162,8 @@ fn open_project_loads_nodes() {
 }
 
 #[test]
-fn open_project_builds_adjacency() {
-    let dir = temp_dir("open-adjacency");
+fn open_project_builds_dependency_indexes() {
+    let dir = temp_dir("open-dep-indexes");
     init_project(&dir, &DEFAULTS).unwrap();
 
     fs::write(dir.join("nodes/n-4a7b2c.md"), common::AXIOM_FILE).unwrap();
@@ -172,11 +172,11 @@ fn open_project_builds_adjacency() {
     let (kb, _) = open_project(&dir).unwrap();
 
     // n-7c1d3e depends on n-4a7b2c and n-3f8a1d (the latter doesn't exist as a
-    // file, but the adjacency map still records the relationship)
-    let deps_of_4a7b2c = kb.dependents.get("n-4a7b2c").unwrap();
+    // file, but the dependency map still records the relationship)
+    let deps_of_4a7b2c = kb.depend_on.get("n-4a7b2c").unwrap();
     assert!(deps_of_4a7b2c.contains("n-7c1d3e"));
 
-    let deps_of_3f8a1d = kb.dependents.get("n-3f8a1d").unwrap();
+    let deps_of_3f8a1d = kb.depend_on.get("n-3f8a1d").unwrap();
     assert!(deps_of_3f8a1d.contains("n-7c1d3e"));
 
     let _ = fs::remove_dir_all(&dir);

@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Mutex};
 
 use ex_grapha_core::{
-    model::{Dependency, EdgeAnnotation, Node, NodeType},
+    model::{EdgeAnnotation, Node},
     node::NodeParams,
     project::{self, InitOptions, KnowledgeBase, LoadWarning},
 };
@@ -119,15 +119,10 @@ impl From<&Node> for NodeDto {
 #[tauri::command]
 fn init_project(
     path: String,
-    include_git_hook: bool,
-    include_github_workflow: bool,
+    options: InitOptions,
     state: State<'_, AppState>,
 ) -> Result<InitResult, String> {
     let p = PathBuf::from(&path);
-    let options = InitOptions {
-        include_git_hook,
-        include_github_workflow,
-    };
     let kb = project::init_project(&p, &options).map_err(|e| e.to_string())?;
     let root = kb.root.clone();
     *state.kb.lock().unwrap() = Some(kb);
@@ -149,26 +144,9 @@ fn open_project(path: String, state: State<'_, AppState>) -> Result<OpenResult, 
 // ── Node CRUD commands ────────────────────────────────────
 
 #[tauri::command]
-fn create_node(
-    title: String,
-    node_type: NodeType,
-    tags: Vec<String>,
-    dependencies: Vec<Dependency>,
-    relation: Option<String>,
-    content: String,
-    state: State<'_, AppState>,
-) -> Result<NodeDto, String> {
+fn create_node(params: NodeParams, state: State<'_, AppState>) -> Result<NodeDto, String> {
     with_kb(&state, |kb| {
-        let node = kb
-            .create_node(NodeParams {
-                title,
-                node_type,
-                tags,
-                dependencies,
-                relation,
-                content,
-            })
-            .map_err(|e| e.to_string())?;
+        let node = kb.create_node(params).map_err(|e| e.to_string())?;
         Ok(NodeDto::from(&node))
     })
 }
@@ -182,31 +160,13 @@ fn get_node(id: String, state: State<'_, AppState>) -> Result<NodeDto, String> {
 }
 
 #[tauri::command]
-#[allow(clippy::too_many_arguments)]
 fn update_node(
     id: String,
-    title: String,
-    node_type: NodeType,
-    tags: Vec<String>,
-    dependencies: Vec<Dependency>,
-    relation: Option<String>,
-    content: String,
+    params: NodeParams,
     state: State<'_, AppState>,
 ) -> Result<NodeDto, String> {
     with_kb(&state, |kb| {
-        let node = kb
-            .update_node(
-                &id,
-                NodeParams {
-                    title,
-                    node_type,
-                    tags,
-                    dependencies,
-                    relation,
-                    content,
-                },
-            )
-            .map_err(|e| e.to_string())?;
+        let node = kb.update_node(&id, params).map_err(|e| e.to_string())?;
         Ok(NodeDto::from(&node))
     })
 }

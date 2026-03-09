@@ -11,6 +11,7 @@ use crate::{
 };
 
 /// Parameters for creating or updating a node.
+#[derive(serde::Deserialize)]
 pub struct NodeParams {
     pub title: String,
     pub node_type: NodeType,
@@ -53,8 +54,27 @@ impl KnowledgeBase {
         let file_path = self.root.join(format!("nodes/{}.md", node.frontmatter.id));
         node_parser::write_node_file(&file_path, &node)?;
 
-        self.nodes.insert(node.frontmatter.id.clone(), node.clone());
-        self.rebuild_adjacency();
+        let new_id = node.frontmatter.id.clone();
+
+        // Compute transitive deps for the new node from its direct dependencies.
+        let mut trans = std::collections::HashSet::new();
+        for dep in &node.frontmatter.dependencies {
+            trans.insert(dep.node_id.clone());
+            if let Some(sub) = self.transitive_deps.get(&dep.node_id).cloned() {
+                trans.extend(sub);
+            }
+        }
+        self.transitive_deps.insert(new_id.clone(), trans);
+
+        // Update depend_on reverse index.
+        for dep in &node.frontmatter.dependencies {
+            self.depend_on
+                .entry(dep.node_id.clone())
+                .or_default()
+                .insert(new_id.clone());
+        }
+
+        self.nodes.insert(new_id, node.clone());
 
         Ok(node)
     }
@@ -100,19 +120,20 @@ impl KnowledgeBase {
         node_parser::write_node_file(&file_path, &node)?;
 
         self.nodes.insert(id.to_string(), node.clone());
-        self.rebuild_adjacency();
+        self.rebuild_indexes();
 
         Ok(node)
     }
 
     /// Delete a node. Fails if other nodes depend on it.
     pub fn delete_node(&mut self, id: &str) -> Result<(), Error> {
-        if !self.nodes.contains_key(id) {
-            return Err(Error::NodeNotFound(id.to_string()));
-        }
+        let node = self
+            .nodes
+            .get(id)
+            .ok_or_else(|| Error::NodeNotFound(id.to_string()))?;
 
         // Check if any nodes depend on this one.
-        if let Some(deps) = self.dependents.get(id) {
+        if let Some(deps) = self.depend_on.get(id) {
             if !deps.is_empty() {
                 let mut dependents: Vec<String> = deps.iter().cloned().collect();
                 dependents.sort();
@@ -123,14 +144,30 @@ impl KnowledgeBase {
             }
         }
 
+        // Remove from depend_on reverse index (for each of its direct deps).
+        let direct_deps: Vec<String> = node
+            .frontmatter
+            .dependencies
+            .iter()
+            .map(|d| d.node_id.clone())
+            .collect();
+        for dep_id in &direct_deps {
+            if let Some(set) = self.depend_on.get_mut(dep_id) {
+                set.remove(id);
+            }
+        }
+
+        // Remove transitive deps entry.
+        self.transitive_deps.remove(id);
+        // Remove depend_on entry (nothing should depend on it, but clean up).
+        self.depend_on.remove(id);
+
         self.nodes.remove(id);
 
         let file_path = self.root.join(format!("nodes/{id}.md"));
         if file_path.exists() {
             fs::remove_file(&file_path)?;
         }
-
-        self.rebuild_adjacency();
 
         Ok(())
     }
