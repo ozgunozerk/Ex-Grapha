@@ -35,4 +35,7 @@ pub enum Error {
 
     #[error("edge already exists: {from} -> {to}")]
     EdgeAlreadyExists { from: String, to: String },
+
+    #[error("relation expression error: {0}")]
+    RelationParse(String),
 }
