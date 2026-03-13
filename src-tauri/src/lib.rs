@@ -247,6 +247,15 @@ fn update_edge_annotation(
     })
 }
 
+// ── Validation commands ───────────────────────────────────
+
+#[tauri::command]
+fn validate_project(
+    state: State<'_, AppState>,
+) -> Result<ex_grapha_core::validation::ValidationReport, String> {
+    with_kb(&state, |kb| Ok(kb.validate()))
+}
+
 // ── App entry ─────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -267,6 +276,7 @@ pub fn run() {
             delete_edge,
             remove_dependency_and_convert_to_axiom,
             update_edge_annotation,
+            validate_project,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

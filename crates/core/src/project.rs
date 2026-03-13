@@ -36,6 +36,10 @@ pub struct KnowledgeBase {
     /// (transitively) depends on. In-memory only, used for O(1) cycle
     /// detection.
     pub(crate) transitive_deps: HashMap<NodeId, HashSet<NodeId>>,
+    /// Node IDs that appeared in more than one `.md` file during
+    /// `open_project`. The `HashMap` silently overwrites duplicates, so we
+    /// record them here for the validation engine to report.
+    pub(crate) duplicate_ids: Vec<(NodeId, PathBuf)>,
 }
 
 impl KnowledgeBase {
@@ -62,10 +66,20 @@ impl KnowledgeBase {
     }
 
     /// Recursively compute transitive deps for `node_id`, caching results.
+    ///
+    /// **Cycle-safe**: an empty sentinel is inserted before recursing. If we
+    /// encounter the same node again during descent, the sentinel is returned
+    /// and the recursion terminates. For cyclic graphs this means a node in a
+    /// cycle will end up containing itself in its transitive deps — the
+    /// validation engine uses this property to detect cycles.
     fn compute_transitive_deps(&mut self, node_id: &str) -> HashSet<NodeId> {
         if let Some(cached) = self.transitive_deps.get(node_id) {
             return cached.clone();
         }
+
+        // Sentinel: break infinite recursion on cycles.
+        self.transitive_deps
+            .insert(node_id.to_string(), HashSet::new());
 
         let direct_deps: Vec<NodeId> = self
             .nodes
@@ -159,6 +173,7 @@ pub fn init_project(path: &Path, options: &InitOptions) -> Result<KnowledgeBase,
         nodes: HashMap::new(),
         depend_on: HashMap::new(),
         transitive_deps: HashMap::new(),
+        duplicate_ids: Vec::new(),
     })
 }
 
@@ -194,6 +209,7 @@ pub fn open_project(path: &Path) -> Result<(KnowledgeBase, Vec<LoadWarning>), Er
     // Load all node files
     let mut nodes = HashMap::new();
     let mut warnings = Vec::new();
+    let mut duplicate_ids = Vec::new();
 
     let entries: Vec<_> = fs::read_dir(&nodes_dir)?
         .filter_map(|e| e.ok())
@@ -204,7 +220,14 @@ pub fn open_project(path: &Path) -> Result<(KnowledgeBase, Vec<LoadWarning>), Er
         let file_path = entry.path();
         match node_parser::read_node_file(&file_path) {
             Ok(node) => {
-                nodes.insert(node.frontmatter.id.clone(), node);
+                let id = node.frontmatter.id.clone();
+                if nodes.insert(id.clone(), node).is_some() {
+                    warnings.push(LoadWarning {
+                        path: file_path.clone(),
+                        message: format!("duplicate node ID `{id}`; keeping the last file loaded"),
+                    });
+                    duplicate_ids.push((id, file_path.clone()));
+                }
             }
             Err(e) => {
                 warnings.push(LoadWarning {
@@ -221,6 +244,7 @@ pub fn open_project(path: &Path) -> Result<(KnowledgeBase, Vec<LoadWarning>), Er
         nodes,
         depend_on: HashMap::new(),
         transitive_deps: HashMap::new(),
+        duplicate_ids,
     };
     kb.rebuild_indexes();
 
