@@ -1,15 +1,25 @@
-use std::{path::PathBuf, sync::Mutex};
+use std::{
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+};
 
 use ex_grapha_core::{
     model::{EdgeAnnotation, Node},
     node::NodeParams,
     project::{self, InitOptions, KnowledgeBase, LoadWarning},
 };
-use tauri::State;
+use tauri::{AppHandle, State};
+
+mod watcher;
+use watcher::WatcherHandle;
 
 /// Shared application state: the currently open knowledge base (if any).
 struct AppState {
-    kb: Mutex<Option<KnowledgeBase>>,
+    /// The in-memory knowledge base, shared between Tauri commands and the
+    /// file watcher callback via `Arc`.
+    kb: Arc<Mutex<Option<KnowledgeBase>>>,
+    /// Handle to the running file watcher (if a project is open).
+    watcher: Mutex<Option<WatcherHandle>>,
 }
 
 /// Helper: lock the state and get a mutable ref to the KB, or return an error
@@ -21,6 +31,23 @@ fn with_kb<T>(
     let mut guard = state.kb.lock().unwrap();
     let kb = guard.as_mut().ok_or("no project is open")?;
     f(kb)
+}
+
+/// Start the file watcher for the current project and store the handle.
+fn start_project_watcher(app_handle: &AppHandle, state: &State<'_, AppState>, project_root: &Path) {
+    let handle = watcher::start_watcher(
+        app_handle.clone(),
+        Arc::clone(&state.kb),
+        project_root.to_path_buf(),
+    );
+    match handle {
+        Ok(h) => {
+            *state.watcher.lock().unwrap() = Some(h);
+        }
+        Err(e) => {
+            eprintln!("warning: failed to start file watcher: {e}");
+        }
+    }
 }
 
 // ── DTOs ──────────────────────────────────────────────────
@@ -120,25 +147,42 @@ impl From<&Node> for NodeDto {
 fn init_project(
     path: String,
     options: InitOptions,
+    app_handle: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<InitResult, String> {
     let p = PathBuf::from(&path);
     let kb = project::init_project(&p, &options).map_err(|e| e.to_string())?;
     let root = kb.root.clone();
     *state.kb.lock().unwrap() = Some(kb);
+    start_project_watcher(&app_handle, &state, &root);
     Ok(InitResult { root })
 }
 
 #[tauri::command]
-fn open_project(path: String, state: State<'_, AppState>) -> Result<OpenResult, String> {
+fn open_project(
+    path: String,
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<OpenResult, String> {
     let p = PathBuf::from(&path);
     let (kb, warnings) = project::open_project(&p).map_err(|e| e.to_string())?;
     let result = OpenResult {
         root: kb.root.clone(),
         warnings: warnings.into_iter().map(Into::into).collect(),
     };
+    let root = kb.root.clone();
     *state.kb.lock().unwrap() = Some(kb);
+    start_project_watcher(&app_handle, &state, &root);
     Ok(result)
+}
+
+#[tauri::command]
+fn close_project(state: State<'_, AppState>) -> Result<(), String> {
+    // Stop the file watcher first.
+    *state.watcher.lock().unwrap() = None;
+    // Then clear the KB.
+    *state.kb.lock().unwrap() = None;
+    Ok(())
 }
 
 // ── Node CRUD commands ────────────────────────────────────
@@ -272,11 +316,13 @@ fn validate_project(
 pub fn run() {
     tauri::Builder::default()
         .manage(AppState {
-            kb: Mutex::new(None),
+            kb: Arc::new(Mutex::new(None)),
+            watcher: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             init_project,
             open_project,
+            close_project,
             create_node,
             get_node,
             update_node,
