@@ -9,3 +9,4 @@ pub mod relation;
 pub mod staleness;
 pub mod util;
 pub mod validation;
+pub mod watcher;
