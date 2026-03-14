@@ -18,7 +18,7 @@
 //! | Type constraints        | O(V)      | One call per node                     |
 //! | Dangling references     | O(E)      | One O(1) HashMap lookup per edge      |
 //! | Relation integrity      | O(V)      | One `parse_relation()` per deduction  |
-//! | Cycle detection         | O(V)      | Scan `transitive_deps` for self-ref   |
+//! | Cycle detection         | O(V)      | Scan `dependencies` for self-ref   |
 //! | Tag / annotation refs   | O(V + E)  | HashSet lookups per tag and per edge  |
 //! | Duplicate IDs           | O(D)      | D = number of duplicates (tiny)       |
 //!
@@ -26,7 +26,7 @@
 //!
 //! # How it relates to in-memory indexes
 //!
-//! `transitive_deps` is **purely in-memory** — never written to disk.
+//! `dependencies` is **purely in-memory** — never written to disk.
 //! It is rebuilt from scratch every time `open_project()` runs. Users
 //! cannot tamper with it; the only data on disk is each node's
 //! `dependencies` list in the YAML frontmatter. The validation engine
@@ -215,14 +215,14 @@ impl KnowledgeBase {
 
     /// The dependency graph must be a DAG (no cycles).
     ///
-    /// Leverages the already-computed `transitive_deps`.  With the
-    /// cycle-safe `compute_transitive_deps`, a node in a cycle will
+    /// Leverages the already-computed `dependencies`.  With the
+    /// cycle-safe `compute_dependencies`, a node in a cycle will
     /// contain itself in its own transitive deps set.  We detect that
     /// here and extract a concrete cycle path via targeted DFS.
     fn check_cycles(&self, issues: &mut Vec<ValidationIssue>) {
         // Find any node that is in its own transitive deps.
         let flagged = self
-            .transitive_deps
+            .dependencies
             .iter()
             .find(|(id, deps)| deps.contains(*id));
 
@@ -263,7 +263,7 @@ impl KnowledgeBase {
                     .iter()
                     .map(|d| d.node_id.as_str())
                     .find(|dep_id| {
-                        self.transitive_deps
+                        self.dependencies
                             .get(*dep_id)
                             .is_some_and(|deps| deps.contains(*dep_id))
                             || *dep_id == start_id

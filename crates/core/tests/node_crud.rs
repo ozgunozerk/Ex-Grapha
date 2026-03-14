@@ -105,7 +105,7 @@ fn create_deduction_node() {
     assert_eq!(kb.nodes.len(), 2);
 
     // Reverse dep map: axiom has a dependent
-    let deps = kb.depend_on.get(&axiom_id).unwrap();
+    let deps = kb.dependents.get(&axiom_id).unwrap();
     assert!(deps.contains(&deduction.frontmatter.id));
 
     let _ = fs::remove_dir_all(&dir);
@@ -280,7 +280,7 @@ fn update_type_conversion_axiom_to_deduction() {
     assert_eq!(updated.frontmatter.dependencies.len(), 1);
 
     // Reverse dep map updated
-    let deps = kb.depend_on.get(&a1_id).unwrap();
+    let deps = kb.dependents.get(&a1_id).unwrap();
     assert!(deps.contains(&a2_id));
 
     let _ = fs::remove_dir_all(&dir);
@@ -319,7 +319,7 @@ fn update_type_conversion_deduction_to_axiom() {
     assert!(updated.frontmatter.relation.is_none());
 
     // Reverse dep map cleaned up
-    let deps = kb.depend_on.get(&a_id);
+    let deps = kb.dependents.get(&a_id);
     assert!(deps.is_none() || deps.unwrap().is_empty());
 
     let _ = fs::remove_dir_all(&dir);

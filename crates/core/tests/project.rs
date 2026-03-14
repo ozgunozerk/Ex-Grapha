@@ -42,7 +42,7 @@ fn init_creates_core_structure() {
     assert!(!dir.join(".github").exists());
 
     assert!(kb.nodes.is_empty());
-    assert!(kb.depend_on.is_empty());
+    assert!(kb.dependents.is_empty());
 
     let _ = fs::remove_dir_all(&dir);
 }
@@ -173,10 +173,10 @@ fn open_project_builds_dependency_indexes() {
 
     // n-7c1d3e depends on n-4a7b2c and n-3f8a1d (the latter doesn't exist as a
     // file, but the dependency map still records the relationship)
-    let deps_of_4a7b2c = kb.depend_on.get("n-4a7b2c").unwrap();
+    let deps_of_4a7b2c = kb.dependents.get("n-4a7b2c").unwrap();
     assert!(deps_of_4a7b2c.contains("n-7c1d3e"));
 
-    let deps_of_3f8a1d = kb.depend_on.get("n-3f8a1d").unwrap();
+    let deps_of_3f8a1d = kb.dependents.get("n-3f8a1d").unwrap();
     assert!(deps_of_3f8a1d.contains("n-7c1d3e"));
 
     let _ = fs::remove_dir_all(&dir);

@@ -29,13 +29,13 @@ pub struct KnowledgeBase {
     pub config: ProjectConfig,
     /// All loaded nodes, keyed by their ID.
     pub nodes: HashMap<NodeId, Node>,
-    /// Reverse dependency map: `depend_on[A] = {B, C}` means B and C depend on
+    /// Reverse dependency map: `dependents[A] = {B, C}` means B and C depend on
     /// A. Used for staleness propagation and deletion blocking.
-    pub depend_on: HashMap<NodeId, HashSet<NodeId>>,
-    /// Transitive dependency sets: `transitive_deps[A]` = all nodes that A
+    pub dependents: HashMap<NodeId, HashSet<NodeId>>,
+    /// Transitive dependency sets: `dependencies[A]` = all nodes that A
     /// (transitively) depends on. In-memory only, used for O(1) cycle
     /// detection.
-    pub(crate) transitive_deps: HashMap<NodeId, HashSet<NodeId>>,
+    pub(crate) dependencies: HashMap<NodeId, HashSet<NodeId>>,
     /// Node IDs that appeared in more than one `.md` file during
     /// `open_project`. The `HashMap` silently overwrites duplicates, so we
     /// record them here for the validation engine to report.
@@ -43,25 +43,35 @@ pub struct KnowledgeBase {
 }
 
 impl KnowledgeBase {
-    /// Rebuild `depend_on` and `transitive_deps` from the current node set.
+    /// Write a node's current in-memory state to its `.md` file on disk.
+    pub(crate) fn write_node_to_disk(&self, node_id: &str) -> Result<(), Error> {
+        let node = self
+            .nodes
+            .get(node_id)
+            .ok_or_else(|| Error::NodeNotFound(node_id.to_string()))?;
+        let file_path = self.root.join(format!("nodes/{node_id}.md"));
+        node_parser::write_node_file(&file_path, node)
+    }
+
+    /// Rebuild `dependents` and `dependencies` from the current node set.
     pub fn rebuild_indexes(&mut self) {
-        // Rebuild depend_on (reverse dependency map).
-        self.depend_on.clear();
+        // Rebuild dependents (reverse dependency map).
+        self.dependents.clear();
         for node in self.nodes.values() {
             let dependent_id = &node.frontmatter.id;
             for dep in &node.frontmatter.dependencies {
-                self.depend_on
+                self.dependents
                     .entry(dep.node_id.clone())
                     .or_default()
                     .insert(dependent_id.clone());
             }
         }
 
-        // Rebuild transitive_deps via memoized DFS.
-        self.transitive_deps.clear();
+        // Rebuild dependencies via memoized DFS.
+        self.dependencies.clear();
         let ids: Vec<NodeId> = self.nodes.keys().cloned().collect();
         for id in ids {
-            self.compute_transitive_deps(&id);
+            self.compute_dependencies(&id);
         }
     }
 
@@ -72,13 +82,13 @@ impl KnowledgeBase {
     /// and the recursion terminates. For cyclic graphs this means a node in a
     /// cycle will end up containing itself in its transitive deps — the
     /// validation engine uses this property to detect cycles.
-    fn compute_transitive_deps(&mut self, node_id: &str) -> HashSet<NodeId> {
-        if let Some(cached) = self.transitive_deps.get(node_id) {
+    fn compute_dependencies(&mut self, node_id: &str) -> HashSet<NodeId> {
+        if let Some(cached) = self.dependencies.get(node_id) {
             return cached.clone();
         }
 
         // Sentinel: break infinite recursion on cycles.
-        self.transitive_deps
+        self.dependencies
             .insert(node_id.to_string(), HashSet::new());
 
         let direct_deps: Vec<NodeId> = self
@@ -96,11 +106,11 @@ impl KnowledgeBase {
         let mut result = HashSet::new();
         for dep_id in &direct_deps {
             result.insert(dep_id.clone());
-            let sub = self.compute_transitive_deps(dep_id);
+            let sub = self.compute_dependencies(dep_id);
             result.extend(sub);
         }
 
-        self.transitive_deps
+        self.dependencies
             .insert(node_id.to_string(), result.clone());
         result
     }
@@ -171,8 +181,8 @@ pub fn init_project(path: &Path, options: &InitOptions) -> Result<KnowledgeBase,
         root,
         config,
         nodes: HashMap::new(),
-        depend_on: HashMap::new(),
-        transitive_deps: HashMap::new(),
+        dependents: HashMap::new(),
+        dependencies: HashMap::new(),
         duplicate_ids: Vec::new(),
     })
 }
@@ -242,8 +252,8 @@ pub fn open_project(path: &Path) -> Result<(KnowledgeBase, Vec<LoadWarning>), Er
         root,
         config,
         nodes,
-        depend_on: HashMap::new(),
-        transitive_deps: HashMap::new(),
+        dependents: HashMap::new(),
+        dependencies: HashMap::new(),
         duplicate_ids,
     };
     kb.rebuild_indexes();
