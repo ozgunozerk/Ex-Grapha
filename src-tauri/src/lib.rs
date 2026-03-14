@@ -247,6 +247,16 @@ fn update_edge_annotation(
     })
 }
 
+// ── Staleness commands ────────────────────────────────────
+
+#[tauri::command]
+fn mark_node_reviewed(id: String, state: State<'_, AppState>) -> Result<NodeDto, String> {
+    with_kb(&state, |kb| {
+        let node = kb.mark_node_reviewed(&id).map_err(|e| e.to_string())?;
+        Ok(NodeDto::from(&node))
+    })
+}
+
 // ── Validation commands ───────────────────────────────────
 
 #[tauri::command]
@@ -276,6 +286,7 @@ pub fn run() {
             delete_edge,
             remove_dependency_and_convert_to_axiom,
             update_edge_annotation,
+            mark_node_reviewed,
             validate_project,
         ])
         .run(tauri::generate_context!())

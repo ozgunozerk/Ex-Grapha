@@ -72,7 +72,7 @@ fn create_edge_basic() {
     assert!(b_node.frontmatter.dependencies[0].annotation.is_none());
 
     // Reverse dep map updated
-    let deps = kb.depend_on.get(&a_id).unwrap();
+    let deps = kb.dependents.get(&a_id).unwrap();
     assert!(deps.contains(&b_id));
 
     // Persisted on disk
@@ -293,7 +293,7 @@ fn delete_edge_basic() {
     assert_eq!(c_node.frontmatter.dependencies[0].node_id, b_id);
 
     // Reverse dep map updated
-    let a_deps = kb.depend_on.get(&a_id);
+    let a_deps = kb.dependents.get(&a_id);
     assert!(a_deps.is_none() || !a_deps.unwrap().contains(&c_id));
 
     let _ = fs::remove_dir_all(&dir);

@@ -329,7 +329,7 @@ relation: \"n-aaa111\"
 ",
     );
 
-    // Must not panic (compute_transitive_deps is cycle-safe).
+    // Must not panic (compute_dependencies is cycle-safe).
     let result = open_project(&dir);
     assert!(result.is_ok());
 

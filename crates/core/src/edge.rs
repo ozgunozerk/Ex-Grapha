@@ -32,7 +32,7 @@ impl KnowledgeBase {
 
         // If dependency transitively depends on dependent, adding
         // dependent → dependency would create a cycle.
-        self.transitive_deps
+        self.dependencies
             .get(dependency_id)
             .is_some_and(|deps: &HashSet<String>| deps.contains(dependent_id))
     }
@@ -88,34 +88,34 @@ impl KnowledgeBase {
         // We just added: dependent → dependency.
         //
         // 1. Record in the reverse dep map: dependency is now depended on by dependent.
-        self.depend_on
+        self.dependents
             .entry(dependency_id.to_string())
             .or_default()
             .insert(dependent_id.to_string());
 
         // 2. Collect the set of transitive deps that the *dependent* just gained
         //    through this new edge. That set is: { dependency } ∪
-        //    transitive_deps[dependency] (i.e. the dependency itself, plus everything
-        //    *it* transitively depends on).
+        //    dependencies[dependency] (i.e. the dependency itself, plus everything *it*
+        //    transitively depends on).
         let mut gained = HashSet::new();
         gained.insert(dependency_id.to_string());
-        if let Some(sub) = self.transitive_deps.get(dependency_id).cloned() {
+        if let Some(sub) = self.dependencies.get(dependency_id).cloned() {
             gained.extend(sub);
         }
 
-        // 3. Propagate `gained` into the dependent's transitive_deps, and then into
-        //    every node that transitively depend on the dependent). We use BFS and stop
+        // 3. Propagate `gained` into the dependent's dependencies, and then into every
+        //    node that transitively depend on the dependent). We use BFS and stop
         //    propagation along any branch where nothing new was actually added
         //    (fixed-point).
         let mut queue = VecDeque::new();
         queue.push_back(dependent_id.to_string());
         while let Some(current) = queue.pop_front() {
-            let entry = self.transitive_deps.entry(current.clone()).or_default();
+            let entry = self.dependencies.entry(current.clone()).or_default();
             let before_len = entry.len();
             entry.extend(gained.iter().cloned());
             // Only continue downstream if this node's set actually grew.
             if entry.len() > before_len {
-                if let Some(downstream) = self.depend_on.get(&current) {
+                if let Some(downstream) = self.dependents.get(&current) {
                     for next in downstream {
                         queue.push_back(next.clone());
                     }
