@@ -42,7 +42,6 @@ fn deduction(title: &str, dep_ids: &[&str], relation: &str) -> NodeParams {
             .iter()
             .map(|id| Dependency {
                 node_id: id.to_string(),
-                annotation: None,
             })
             .collect(),
         relation: Some(relation.into()),

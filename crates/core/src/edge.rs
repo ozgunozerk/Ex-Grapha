@@ -4,7 +4,7 @@ use std::collections::{HashSet, VecDeque};
 
 use crate::{
     error::Error,
-    model::{Dependency, EdgeAnnotation, NodeType},
+    model::{Dependency, NodeType},
     node_parser,
     project::KnowledgeBase,
 };
@@ -42,7 +42,6 @@ impl KnowledgeBase {
         &mut self,
         dependent_id: &str,
         dependency_id: &str,
-        annotation: Option<EdgeAnnotation>,
     ) -> Result<(), Error> {
         // Both nodes must exist.
         if !self.nodes.contains_key(dependent_id) {
@@ -77,7 +76,6 @@ impl KnowledgeBase {
         let node = self.nodes.get_mut(dependent_id).unwrap();
         node.frontmatter.dependencies.push(Dependency {
             node_id: dependency_id.to_string(),
-            annotation,
         });
 
         let file_path = self.root.join(format!("nodes/{dependent_id}.md"));
@@ -217,33 +215,4 @@ impl KnowledgeBase {
         Ok(())
     }
 
-    /// Change or remove the annotation on an existing edge.
-    pub fn update_edge_annotation(
-        &mut self,
-        dependent_id: &str,
-        dependency_id: &str,
-        annotation: Option<EdgeAnnotation>,
-    ) -> Result<(), Error> {
-        let node = self
-            .nodes
-            .get_mut(dependent_id)
-            .ok_or_else(|| Error::NodeNotFound(dependent_id.to_string()))?;
-
-        let dep = node
-            .frontmatter
-            .dependencies
-            .iter_mut()
-            .find(|d| d.node_id == dependency_id)
-            .ok_or_else(|| Error::EdgeNotFound {
-                from: dependent_id.to_string(),
-                to: dependency_id.to_string(),
-            })?;
-
-        dep.annotation = annotation;
-
-        let file_path = self.root.join(format!("nodes/{dependent_id}.md"));
-        node_parser::write_node_file(&file_path, node)?;
-
-        Ok(())
-    }
 }

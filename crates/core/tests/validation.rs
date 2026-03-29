@@ -1,7 +1,7 @@
 use std::fs;
 
 use ex_grapha_core::{
-    model::{Dependency, EdgeAnnotation, NodeType},
+    model::{Dependency, NodeType},
     node::NodeParams,
     project::{init_project, open_project, InitOptions},
     validation::{Severity, ValidationRule},
@@ -45,21 +45,10 @@ fn deduction(title: &str, deps: Vec<Dependency>, relation: &str) -> NodeParams {
     }
 }
 
-/// Build a `Dependency` with no annotation.
+/// Build a `Dependency`.
 fn dep(id: &str) -> Dependency {
     Dependency {
         node_id: id.into(),
-        annotation: None,
-    }
-}
-
-/// Build a `Dependency` with an annotation label.
-fn dep_with_ann(id: &str, label: &str) -> Dependency {
-    Dependency {
-        node_id: id.into(),
-        annotation: Some(EdgeAnnotation {
-            label: label.into(),
-        }),
     }
 }
 
@@ -660,7 +649,7 @@ dependencies: []
     let _ = fs::remove_dir_all(&dir);
 }
 
-// ── Tag / annotation warnings ────────────────────────────
+// ── Tag warnings ────────────────────────────────────────
 
 #[test]
 fn validate_warns_on_undefined_tag() {
@@ -714,60 +703,6 @@ fn validate_defined_tags_no_warning() {
             .iter()
             .any(|i| i.rule == ValidationRule::TagReference),
         "defined tags should not trigger warnings"
-    );
-
-    let _ = fs::remove_dir_all(&dir);
-}
-
-#[test]
-fn validate_warns_on_undefined_annotation() {
-    let dir = temp_dir("val-undef-ann");
-    let mut kb = init_project(&dir, &DEFAULTS).unwrap();
-
-    let a = kb.create_node(axiom("A")).unwrap();
-    let a_id = a.frontmatter.id.clone();
-
-    // Use a non-standard annotation label.
-    kb.create_node(deduction(
-        "B",
-        vec![dep_with_ann(&a_id, "custom-unknown-label")],
-        &a_id,
-    ))
-    .unwrap();
-
-    let report = kb.validate();
-
-    let ann_issues: Vec<_> = report
-        .issues
-        .iter()
-        .filter(|i| i.rule == ValidationRule::AnnotationReference)
-        .collect();
-    assert_eq!(ann_issues.len(), 1);
-    assert_eq!(ann_issues[0].severity, Severity::Warning);
-    assert!(ann_issues[0].message.contains("custom-unknown-label"));
-
-    let _ = fs::remove_dir_all(&dir);
-}
-
-#[test]
-fn validate_defined_annotations_no_warning() {
-    let dir = temp_dir("val-defined-ann");
-    let mut kb = init_project(&dir, &DEFAULTS).unwrap();
-
-    let a = kb.create_node(axiom("A")).unwrap();
-    let a_id = a.frontmatter.id.clone();
-
-    // "supports" is one of the default annotations.
-    kb.create_node(deduction("B", vec![dep_with_ann(&a_id, "supports")], &a_id))
-        .unwrap();
-
-    let report = kb.validate();
-    assert!(
-        !report
-            .issues
-            .iter()
-            .any(|i| i.rule == ValidationRule::AnnotationReference),
-        "defined annotations should not trigger warnings"
     );
 
     let _ = fs::remove_dir_all(&dir);

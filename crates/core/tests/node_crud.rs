@@ -2,7 +2,7 @@ use std::fs;
 
 use ex_grapha_core::{
     error::Error,
-    model::{Dependency, EdgeAnnotation, NodeType},
+    model::{Dependency, NodeType},
     node::NodeParams,
     project::{init_project, InitOptions},
 };
@@ -90,9 +90,6 @@ fn create_deduction_node() {
             tags: vec![],
             dependencies: vec![Dependency {
                 node_id: axiom_id.clone(),
-                annotation: Some(EdgeAnnotation {
-                    label: "requires".into(),
-                }),
             }],
             relation: Some(axiom_id.clone()),
             content: "Deduction content.".into(),
@@ -145,7 +142,6 @@ fn create_axiom_with_deps_fails() {
             tags: vec![],
             dependencies: vec![Dependency {
                 node_id: "n-000000".into(),
-                annotation: None,
             }],
             relation: None,
             content: "Content.".into(),
@@ -268,7 +264,6 @@ fn update_type_conversion_axiom_to_deduction() {
                 tags: vec![],
                 dependencies: vec![Dependency {
                     node_id: a1_id.clone(),
-                    annotation: None,
                 }],
                 relation: Some(a1_id.clone()),
                 content: "Derived from axiom 1.".into(),
@@ -301,7 +296,6 @@ fn update_type_conversion_deduction_to_axiom() {
             tags: vec![],
             dependencies: vec![Dependency {
                 node_id: a_id.clone(),
-                annotation: None,
             }],
             relation: Some(a_id.clone()),
             content: "Deduction.".into(),
@@ -360,7 +354,6 @@ fn delete_node_blocked_by_dependents() {
             tags: vec![],
             dependencies: vec![Dependency {
                 node_id: a_id.clone(),
-                annotation: None,
             }],
             relation: Some(a_id.clone()),
             content: "Derived.".into(),

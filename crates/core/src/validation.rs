@@ -19,7 +19,7 @@
 //! | Dangling references     | O(E)      | One O(1) HashMap lookup per edge      |
 //! | Relation integrity      | O(V)      | One `parse_relation()` per deduction  |
 //! | Cycle detection         | O(V)      | Scan `dependencies` for self-ref   |
-//! | Tag / annotation refs   | O(V + E)  | HashSet lookups per tag and per edge  |
+//! | Tag refs                | O(V)      | HashSet lookups per tag               |
 //! | Duplicate IDs           | O(D)      | D = number of duplicates (tiny)       |
 //!
 //! A 10 000-node / 50 000-edge graph validates in milliseconds.
@@ -63,7 +63,6 @@ pub enum ValidationRule {
     TypeConstraints,
     NoDuplicateIds,
     TagReference,
-    AnnotationReference,
 }
 
 /// A single validation issue.
@@ -110,7 +109,6 @@ impl KnowledgeBase {
         self.check_relation_integrity(&mut issues);
         self.check_cycles(&mut issues);
         self.check_tag_references(&mut issues);
-        self.check_annotation_references(&mut issues);
 
         let error_count = issues
             .iter()
@@ -318,33 +316,4 @@ impl KnowledgeBase {
         }
     }
 
-    /// Warn when an edge uses an annotation label
-    /// not defined in config.
-    fn check_annotation_references(&self, issues: &mut Vec<ValidationIssue>) {
-        let defined: HashSet<&str> = self
-            .config
-            .edge_annotations
-            .iter()
-            .map(|a| a.label.as_str())
-            .collect();
-
-        for node in self.nodes.values() {
-            for dep in &node.frontmatter.dependencies {
-                if let Some(ann) = &dep.annotation {
-                    if !defined.contains(ann.label.as_str()) {
-                        issues.push(ValidationIssue {
-                            severity: Severity::Warning,
-                            rule: ValidationRule::AnnotationReference,
-                            node_id: Some(node.frontmatter.id.clone()),
-                            message: format!(
-                                "node `{}` uses annotation `{}` on dependency `{}` not defined in config",
-                                node.frontmatter.id, ann.label, dep.node_id
-                            ),
-                            context: Some(vec![ann.label.clone()]),
-                        });
-                    }
-                }
-            }
-        }
-    }
 }

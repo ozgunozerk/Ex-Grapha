@@ -43,7 +43,6 @@ fn deduction(title: &str, dep_ids: &[&str], relation: &str) -> NodeParams {
             .iter()
             .map(|id| Dependency {
                 node_id: id.to_string(),
-                annotation: None,
             })
             .collect(),
         relation: Some(relation.into()),
@@ -291,18 +290,10 @@ fn reload_config_picks_up_changes() {
     let dir = temp_dir("watcher-config-reload");
     let mut kb = init_project(&dir, &DEFAULTS).unwrap();
 
-    // Default config has 5 edge annotations.
-    assert_eq!(kb.config.edge_annotations.len(), 5);
-
-    // Externally modify config.yaml to have only 1 annotation.
+    // Externally modify config.yaml.
     let new_config = "\
-edge_annotations:
-  - label: custom
-    color: \"#000000\"
 display:
-  edge_labels: true
-  edge_colors: false
-  relation_nodes: true
+  relation_nodes: false
 tag_definitions:
   - name: custom-tag
 ";
@@ -311,9 +302,7 @@ tag_definitions:
     // Reload.
     kb.reload_config().unwrap();
 
-    assert_eq!(kb.config.edge_annotations.len(), 1);
-    assert_eq!(kb.config.edge_annotations[0].label, "custom");
-    assert!(!kb.config.display.edge_colors);
+    assert!(!kb.config.display.relation_nodes);
     assert_eq!(kb.config.tag_definitions.len(), 1);
     assert_eq!(kb.config.tag_definitions[0].name, "custom-tag");
 

@@ -1,14 +1,6 @@
-//! Project-level configuration (`config.yaml`): edge annotations, tags, display
-//! toggles.
+//! Project-level configuration (`config.yaml`): tags and display toggles.
 
 use serde::{Deserialize, Serialize};
-
-/// A project-level edge annotation definition (label + display color).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AnnotationDef {
-    pub label: String,
-    pub color: String,
-}
 
 /// A project-level tag definition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -19,15 +11,12 @@ pub struct TagDef {
 /// Display toggles for the graph canvas.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DisplayConfig {
-    pub edge_labels: bool,
-    pub edge_colors: bool,
     pub relation_nodes: bool,
 }
 
 /// Project-level configuration stored in `.knowledgebase/config.yaml`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ProjectConfig {
-    pub edge_annotations: Vec<AnnotationDef>,
     pub display: DisplayConfig,
     pub tag_definitions: Vec<TagDef>,
 }
@@ -35,8 +24,6 @@ pub struct ProjectConfig {
 impl Default for DisplayConfig {
     fn default() -> Self {
         Self {
-            edge_labels: true,
-            edge_colors: true,
             relation_nodes: true,
         }
     }
@@ -45,28 +32,6 @@ impl Default for DisplayConfig {
 impl Default for ProjectConfig {
     fn default() -> Self {
         Self {
-            edge_annotations: vec![
-                AnnotationDef {
-                    label: "supports".into(),
-                    color: "#22c55e".into(),
-                },
-                AnnotationDef {
-                    label: "contradicts".into(),
-                    color: "#ef4444".into(),
-                },
-                AnnotationDef {
-                    label: "requires".into(),
-                    color: "#f59e0b".into(),
-                },
-                AnnotationDef {
-                    label: "refines".into(),
-                    color: "#3b82f6".into(),
-                },
-                AnnotationDef {
-                    label: "exemplifies".into(),
-                    color: "#a855f7".into(),
-                },
-            ],
             display: DisplayConfig::default(),
             tag_definitions: vec![
                 TagDef {

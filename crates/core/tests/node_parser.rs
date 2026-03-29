@@ -43,15 +43,7 @@ fn parse_deduction_node() {
 
     assert_eq!(fm.dependencies.len(), 2);
     assert_eq!(fm.dependencies[0].node_id, "n-4a7b2c");
-    assert_eq!(
-        fm.dependencies[0].annotation.as_ref().unwrap().label,
-        "requires"
-    );
     assert_eq!(fm.dependencies[1].node_id, "n-3f8a1d");
-    assert_eq!(
-        fm.dependencies[1].annotation.as_ref().unwrap().label,
-        "supports"
-    );
 
     assert_eq!(fm.relation.as_deref(), Some("(n-4a7b2c AND n-3f8a1d)"));
     assert!(node.content.contains("# Orbital Mechanics"));
@@ -172,11 +164,11 @@ Some text after a horizontal rule.
 }
 
 #[test]
-fn dependency_without_annotation() {
+fn simple_dependency() {
     let input = "\
 ---
 id: \"n-aaaaaa\"
-title: \"No Annotation\"
+title: \"Simple Dep\"
 type: \"deduction\"
 tags: []
 status: \"current\"
@@ -192,7 +184,7 @@ Body.
 ";
     let node = parse_node(input).unwrap();
     assert_eq!(node.frontmatter.dependencies.len(), 1);
-    assert!(node.frontmatter.dependencies[0].annotation.is_none());
+    assert_eq!(node.frontmatter.dependencies[0].node_id, "n-bbbbbb");
 }
 
 #[test]

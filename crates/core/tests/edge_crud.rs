@@ -2,7 +2,7 @@ use std::fs;
 
 use ex_grapha_core::{
     error::Error,
-    model::{Dependency, EdgeAnnotation, NodeType},
+    model::{Dependency, NodeType},
     node::NodeParams,
     project::{init_project, InitOptions},
 };
@@ -43,7 +43,6 @@ fn deduction(title: &str, dep_ids: &[&str], relation: &str) -> NodeParams {
             .iter()
             .map(|id| Dependency {
                 node_id: id.to_string(),
-                annotation: None,
             })
             .collect(),
         relation: Some(relation.into()),
@@ -64,12 +63,11 @@ fn create_edge_basic() {
     let b_id = b.frontmatter.id.clone();
 
     // B depends on A
-    kb.create_edge(&b_id, &a_id, None).unwrap();
+    kb.create_edge(&b_id, &a_id).unwrap();
 
     let b_node = kb.get_node(&b_id).unwrap();
     assert_eq!(b_node.frontmatter.dependencies.len(), 1);
     assert_eq!(b_node.frontmatter.dependencies[0].node_id, a_id);
-    assert!(b_node.frontmatter.dependencies[0].annotation.is_none());
 
     // Reverse dep map updated
     let deps = kb.dependents.get(&a_id).unwrap();
@@ -84,38 +82,6 @@ fn create_edge_basic() {
 }
 
 #[test]
-fn create_edge_with_annotation() {
-    let dir = temp_dir("edge-create-annotated");
-    let mut kb = init_project(&dir, &DEFAULTS).unwrap();
-
-    let a = kb.create_node(axiom("A")).unwrap();
-    let b = kb.create_node(axiom("B")).unwrap();
-    let a_id = a.frontmatter.id.clone();
-    let b_id = b.frontmatter.id.clone();
-
-    kb.create_edge(
-        &b_id,
-        &a_id,
-        Some(EdgeAnnotation {
-            label: "requires".into(),
-        }),
-    )
-    .unwrap();
-
-    let b_node = kb.get_node(&b_id).unwrap();
-    assert_eq!(
-        b_node.frontmatter.dependencies[0]
-            .annotation
-            .as_ref()
-            .unwrap()
-            .label,
-        "requires"
-    );
-
-    let _ = fs::remove_dir_all(&dir);
-}
-
-#[test]
 fn create_edge_node_not_found() {
     let dir = temp_dir("edge-create-missing");
     let mut kb = init_project(&dir, &DEFAULTS).unwrap();
@@ -124,11 +90,11 @@ fn create_edge_node_not_found() {
     let a_id = a.frontmatter.id.clone();
 
     // Dependent doesn't exist
-    let err = kb.create_edge("n-nonexistent", &a_id, None).unwrap_err();
+    let err = kb.create_edge("n-nonexistent", &a_id).unwrap_err();
     assert!(matches!(err, Error::NodeNotFound(_)));
 
     // Dependency doesn't exist
-    let err = kb.create_edge(&a_id, "n-nonexistent", None).unwrap_err();
+    let err = kb.create_edge(&a_id, "n-nonexistent").unwrap_err();
     assert!(matches!(err, Error::NodeNotFound(_)));
 
     let _ = fs::remove_dir_all(&dir);
@@ -144,8 +110,8 @@ fn create_edge_already_exists() {
     let a_id = a.frontmatter.id.clone();
     let b_id = b.frontmatter.id.clone();
 
-    kb.create_edge(&b_id, &a_id, None).unwrap();
-    let err = kb.create_edge(&b_id, &a_id, None).unwrap_err();
+    kb.create_edge(&b_id, &a_id).unwrap();
+    let err = kb.create_edge(&b_id, &a_id).unwrap_err();
     assert!(matches!(err, Error::EdgeAlreadyExists { .. }));
 
     let _ = fs::remove_dir_all(&dir);
@@ -159,7 +125,7 @@ fn create_edge_self_loop() {
     let a = kb.create_node(axiom("A")).unwrap();
     let a_id = a.frontmatter.id.clone();
 
-    let err = kb.create_edge(&a_id, &a_id, None).unwrap_err();
+    let err = kb.create_edge(&a_id, &a_id).unwrap_err();
     assert!(matches!(err, Error::CycleDetected { .. }));
 
     let _ = fs::remove_dir_all(&dir);
@@ -176,10 +142,10 @@ fn create_edge_direct_cycle() {
     let b_id = b.frontmatter.id.clone();
 
     // B depends on A
-    kb.create_edge(&b_id, &a_id, None).unwrap();
+    kb.create_edge(&b_id, &a_id).unwrap();
 
     // A depends on B would create a cycle
-    let err = kb.create_edge(&a_id, &b_id, None).unwrap_err();
+    let err = kb.create_edge(&a_id, &b_id).unwrap_err();
     assert!(matches!(err, Error::CycleDetected { .. }));
 
     let _ = fs::remove_dir_all(&dir);
@@ -198,11 +164,11 @@ fn create_edge_transitive_cycle() {
     let c_id = c.frontmatter.id.clone();
 
     // B depends on A, C depends on B
-    kb.create_edge(&b_id, &a_id, None).unwrap();
-    kb.create_edge(&c_id, &b_id, None).unwrap();
+    kb.create_edge(&b_id, &a_id).unwrap();
+    kb.create_edge(&c_id, &b_id).unwrap();
 
     // A depends on C would create A->C->B->A cycle
-    let err = kb.create_edge(&a_id, &c_id, None).unwrap_err();
+    let err = kb.create_edge(&a_id, &c_id).unwrap_err();
     assert!(matches!(err, Error::CycleDetected { .. }));
 
     let _ = fs::remove_dir_all(&dir);
@@ -346,95 +312,6 @@ fn remove_dependency_and_convert_to_axiom_basic() {
     let on_disk =
         ex_grapha_core::node_parser::read_node_file(&dir.join(format!("nodes/{b_id}.md"))).unwrap();
     assert_eq!(on_disk.frontmatter.node_type, NodeType::Axiom);
-
-    let _ = fs::remove_dir_all(&dir);
-}
-
-// ── Update edge annotation ───────────────────────────────
-
-#[test]
-fn update_edge_annotation_basic() {
-    let dir = temp_dir("edge-update-ann");
-    let mut kb = init_project(&dir, &DEFAULTS).unwrap();
-
-    let a = kb.create_node(axiom("A")).unwrap();
-    let b = kb.create_node(axiom("B")).unwrap();
-    let a_id = a.frontmatter.id.clone();
-    let b_id = b.frontmatter.id.clone();
-
-    kb.create_edge(&b_id, &a_id, None).unwrap();
-
-    // Set annotation
-    kb.update_edge_annotation(
-        &b_id,
-        &a_id,
-        Some(EdgeAnnotation {
-            label: "supports".into(),
-        }),
-    )
-    .unwrap();
-
-    let b_node = kb.get_node(&b_id).unwrap();
-    assert_eq!(
-        b_node.frontmatter.dependencies[0]
-            .annotation
-            .as_ref()
-            .unwrap()
-            .label,
-        "supports"
-    );
-
-    let _ = fs::remove_dir_all(&dir);
-}
-
-#[test]
-fn update_edge_annotation_remove() {
-    let dir = temp_dir("edge-update-ann-remove");
-    let mut kb = init_project(&dir, &DEFAULTS).unwrap();
-
-    let a = kb.create_node(axiom("A")).unwrap();
-    let b = kb.create_node(axiom("B")).unwrap();
-    let a_id = a.frontmatter.id.clone();
-    let b_id = b.frontmatter.id.clone();
-
-    kb.create_edge(
-        &b_id,
-        &a_id,
-        Some(EdgeAnnotation {
-            label: "requires".into(),
-        }),
-    )
-    .unwrap();
-
-    // Remove annotation
-    kb.update_edge_annotation(&b_id, &a_id, None).unwrap();
-
-    let b_node = kb.get_node(&b_id).unwrap();
-    assert!(b_node.frontmatter.dependencies[0].annotation.is_none());
-
-    let _ = fs::remove_dir_all(&dir);
-}
-
-#[test]
-fn update_edge_annotation_not_found() {
-    let dir = temp_dir("edge-update-ann-missing");
-    let mut kb = init_project(&dir, &DEFAULTS).unwrap();
-
-    let a = kb.create_node(axiom("A")).unwrap();
-    let b = kb.create_node(axiom("B")).unwrap();
-    let a_id = a.frontmatter.id.clone();
-    let b_id = b.frontmatter.id.clone();
-
-    let err = kb
-        .update_edge_annotation(
-            &a_id,
-            &b_id,
-            Some(EdgeAnnotation {
-                label: "test".into(),
-            }),
-        )
-        .unwrap_err();
-    assert!(matches!(err, Error::EdgeNotFound { .. }));
 
     let _ = fs::remove_dir_all(&dir);
 }

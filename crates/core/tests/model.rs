@@ -19,7 +19,6 @@ fn axiom_with_deps_fails_validation() {
     let mut node = parse_node(common::AXIOM_FILE).unwrap();
     node.frontmatter.dependencies.push(Dependency {
         node_id: "n-aaaaaa".into(),
-        annotation: None,
     });
     let err = node.frontmatter.validate_type_constraints().unwrap_err();
     assert!(err.to_string().contains("empty dependencies"));

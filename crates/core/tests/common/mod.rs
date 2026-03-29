@@ -37,11 +37,7 @@ created_at: \"2026-02-20T09:00:00Z\"
 created_by: \"alice\"
 dependencies:
   - node_id: \"n-4a7b2c\"
-    annotation:
-      label: \"requires\"
   - node_id: \"n-3f8a1d\"
-    annotation:
-      label: \"supports\"
 relation: \"(n-4a7b2c AND n-3f8a1d)\"
 ---
 

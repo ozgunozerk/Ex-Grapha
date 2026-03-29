@@ -21,19 +21,10 @@ pub enum Status {
     Stale,
 }
 
-/// An optional label on an edge (color is resolved from project config at
-/// display time).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EdgeAnnotation {
-    pub label: String,
-}
-
 /// A dependency entry in a node's frontmatter.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Dependency {
     pub node_id: NodeId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub annotation: Option<EdgeAnnotation>,
 }
 
 /// Records which dependency triggered staleness and when.

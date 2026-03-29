@@ -52,9 +52,7 @@ fn init_writes_default_config() {
     let dir = temp_dir("init-config");
     let kb = init_project(&dir, &DEFAULTS).unwrap();
 
-    assert_eq!(kb.config.edge_annotations.len(), 5);
-    assert_eq!(kb.config.edge_annotations[0].label, "supports");
-    assert!(kb.config.display.edge_labels);
+    assert!(kb.config.display.relation_nodes);
     assert_eq!(kb.config.tag_definitions.len(), 3);
 
     // Verify the file on disk round-trips
@@ -222,7 +220,7 @@ fn open_missing_nodes_dir() {
     fs::create_dir_all(dir.join(".knowledgebase")).unwrap();
     fs::write(
         dir.join(".knowledgebase/config.yaml"),
-        "edge_annotations: []\ndisplay:\n  edge_labels: true\n  edge_colors: true\n  relation_nodes: true\ntag_definitions: []\n",
+        "display:\n  relation_nodes: true\ntag_definitions: []\n",
     ).unwrap();
 
     let err = open_project(&dir).unwrap_err();
