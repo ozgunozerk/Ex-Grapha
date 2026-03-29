@@ -4,7 +4,7 @@ use std::{
 };
 
 use ex_grapha_core::{
-    model::{EdgeAnnotation, Node},
+    model::Node,
     node::NodeParams,
     project::{self, InitOptions, KnowledgeBase, LoadWarning},
 };
@@ -97,7 +97,6 @@ struct NodeDto {
 #[derive(serde::Serialize)]
 struct DependencyDto {
     node_id: String,
-    annotation: Option<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -132,7 +131,6 @@ impl From<&Node> for NodeDto {
                 .iter()
                 .map(|d| DependencyDto {
                     node_id: d.node_id.clone(),
-                    annotation: d.annotation.as_ref().map(|a| a.label.clone()),
                 })
                 .collect(),
             relation: fm.relation.clone(),
@@ -226,12 +224,10 @@ fn delete_node(id: String, state: State<'_, AppState>) -> Result<(), String> {
 fn create_edge(
     dependent_id: String,
     dependency_id: String,
-    annotation: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     with_kb(&state, |kb| {
-        let ann = annotation.map(|label| EdgeAnnotation { label });
-        kb.create_edge(&dependent_id, &dependency_id, ann)
+        kb.create_edge(&dependent_id, &dependency_id)
             .map_err(|e| e.to_string())
     })
 }
@@ -277,20 +273,6 @@ fn remove_dependency_and_convert_to_axiom(
     })
 }
 
-#[tauri::command]
-fn update_edge_annotation(
-    dependent_id: String,
-    dependency_id: String,
-    annotation: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
-    with_kb(&state, |kb| {
-        let ann = annotation.map(|label| EdgeAnnotation { label });
-        kb.update_edge_annotation(&dependent_id, &dependency_id, ann)
-            .map_err(|e| e.to_string())
-    })
-}
-
 // ── Staleness commands ────────────────────────────────────
 
 #[tauri::command]
@@ -331,7 +313,6 @@ pub fn run() {
             validate_edge_deletion,
             delete_edge,
             remove_dependency_and_convert_to_axiom,
-            update_edge_annotation,
             mark_node_reviewed,
             validate_project,
         ])
