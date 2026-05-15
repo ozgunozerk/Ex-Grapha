@@ -160,12 +160,12 @@ Render the knowledge graph on an interactive canvas.
 
 **Acceptance criteria**:
 
-- Evaluate and integrate a graph visualization library (Cytoscape.js, D3-force, or Sigma.js — document the decision)
-- Render nodes with: title, status visual indicator (default / amber for stale / red border for broken), tag chips/dots, type distinction (axiom vs deduction — shape or icon)
-- Render directed edges with arrows pointing from dependency → dependent
-- Auto-layout algorithm (force-directed or hierarchical DAG) on first load
-- Manual drag-to-reposition with positions persisted to a local (gitignored) file
-- Canvas pan and zoom
+- Integrate **Svelte Flow** (`@xyflow/svelte`) as the graph rendering library (decision rationale in `core-feature-spec.md` §9.2 — DOM-based, Liam ERD-style cards, comfortable up to ~1000 nodes)
+- Build a custom Svelte Flow node component for main nodes: Liam-ERD-style card with a header strip carrying the type icon (axiom vs deduction) and title. Edge handles on the left/right sides. State styling — left-border accent / header-strip tint / full border tint — picked at implementation time from the three candidates documented in §6.7
+- Render directed edges with arrows pointing from dependency → dependent (customized Svelte Flow edge component, accent-colored thin lines)
+- Auto-layout: DAG-aware hierarchical layout run on first load. Pick between **elkjs** (Liam ERD's choice — `layered` algorithm, closest match to Liam's on-canvas behavior) and **dagre** (simpler API, smaller bundle). Feed the resulting `(x, y)` coordinates into Svelte Flow as initial node positions
+- Manual drag-to-reposition (built-in to Svelte Flow); persist updated positions to a local (gitignored) file
+- Canvas pan and zoom (built-in to Svelte Flow), plus the `<Background pattern="dots" />` component as the default canvas background
 
 ---
 
@@ -177,10 +177,9 @@ Render the relation expression as a small attached node on each deduction.
 
 **Acceptance criteria**:
 
-- For each deduction node, render a small node (~1/10th size) on the incoming-edge side
-- Display a compact form of the relation expression, substituting node titles for IDs
-- Visual state: neutral when valid, red when broken/invalid
-- Clicking the relation node opens the relation editor panel (Issue #14)
+- For each deduction node, render a small **unlabeled circle** (~1/10th size of a main card) attached to the incoming-edge side, as a separate custom Svelte Flow node type
+- Visual state: neutral fill when the expression is valid, red fill when broken/invalid (no text on the circle itself)
+- Clicking the relation node opens the relation editor panel (Issue #14), which displays the expression with node titles substituted for IDs
 - Visibility toggled by the `display.relation_nodes` config flag
 
 ---

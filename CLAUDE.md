@@ -8,7 +8,7 @@ A dependency-aware knowledge graph desktop app (Tauri) where nodes are markdown 
 
 - **Shell**: Tauri (Rust backend + webview frontend)
 - **Backend (Rust)**: Data model, frontmatter parsing (serde_yaml), cycle detection, staleness propagation, validation engine, file watching (notify crate)
-- **Frontend**: Svelte 5 + Vite + TypeScript, graph visualization library TBD (Cytoscape.js/D3/Sigma.js)
+- **Frontend**: Svelte 5 + Vite + TypeScript, Svelte Flow (`@xyflow/svelte`) for the graph canvas. Visual reference: Liam ERD (port aesthetics only — Liam ERD itself is React-Flow-based)
 - **Editor**: Milkdown (WYSIWYG) + CodeMirror 6 (raw markdown), with toggle switch
 
 ## Key Concepts

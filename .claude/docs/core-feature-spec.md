@@ -63,7 +63,7 @@ Each deduction node carries a `relation` field: a propositional logic expression
 
 **Constraints**: Every node ID in the expression must appear in the node's dependency list. Every node in the dependency list should appear in the expression. If a dependency is removed, the expression may become invalid — this is flagged as a broken relation (see §3.3).
 
-**UI representation**: The relation is displayed as a small symbiotic node attached to the incoming-edge side of the parent node, approximately 1/10th the size of the main node. It shows a compact representation of the expression. Clicking it opens the relation editor panel, where the user can modify the expression as raw text. The node id is converted to the node title dynamically, and the human readable title is shown in the UI instead of node ID
+**UI representation**: The relation is displayed as a small symbiotic node attached to the incoming-edge side of the parent node, approximately 1/10th the size of the main node — rendered as a plain unlabeled circle. Clicking it opens the relation editor panel (see §6.5), where the user can view and modify the expression. Inside the editor, node IDs are dynamically substituted with their human-readable titles; the canvas circle itself carries no text.
 
 ---
 
@@ -143,6 +143,7 @@ The `hooks/` directory and `.github/` directory are **optional** — they are on
 ```yaml
 display:
   relation_nodes: true
+  canvas_background: "dots"  # one of: "dots", "grid", "arcane"
 
 tag_definitions:
   - name: "well-established"
@@ -152,7 +153,7 @@ tag_definitions:
 
 Tag definitions are user-editable. Users can add and remove variants through the GUI settings panel or by editing the config file directly.
 
-The display toggle controls the visibility of symbiotic relation nodes, allowing the user to declutter the graph view.
+The `relation_nodes` toggle controls visibility of symbiotic relation nodes, allowing the user to declutter the graph view. The `canvas_background` setting chooses the canvas background style: `dots` and `grid` use Svelte Flow's built-in clean backgrounds (default `dots`); `arcane` uses a dark canvas with a low-opacity tribal/arcane linework pattern for users who prefer the original mood-board aesthetic.
 
 ### 5.3 Node File Format
 
@@ -217,13 +218,13 @@ Given conservation of energy and Newton's gravitational law...
 
 ### 6.1 Layout & Visual Philosophy
 
-The main view is a **graph canvas** with a **side panel**. The canvas renders only visual elements — custom sphere sprites for nodes and custom-designed edges. **No text or titles are displayed on the canvas.** This preserves visual clarity at any zoom level and avoids the problem of unreadable labels when zoomed out on large graphs.
+The main view is a **graph canvas** with a **side panel**. Main knowledge nodes are rendered as compact cards (Liam ERD-inspired) carrying their title and type icon directly on the card — so a user can read the graph at a glance without opening every node. Symbiotic relation nodes (see §6.5) are an exception: they are rendered as small unlabeled circles, intentionally text-free to keep the canvas uncluttered.
 
-All textual information (node titles, search, filters, metadata) lives in the **side panel**, which serves as the primary navigation and discovery interface. The side panel is open by default when the app launches and can be toggled off/hidden/collapsed via a button or keyboard shortcut.
+The **side panel** is the primary navigation and discovery surface (search, filters, broken-deps view, full node list). It is open by default when the app launches and can be toggled off/hidden/collapsed via a button or keyboard shortcut.
 
-**Background**: Dark canvas (#1a1a2e or similar) with a subtle tileable tribal/arcane linework pattern at very low opacity (5-10%), visible as texture when zoomed out but fading into "just a dark background" when working.
+**Background**: Defaults to a clean dot pattern (Svelte Flow's built-in `<Background pattern="dots" />`), which works well on either a light or dark canvas. A grid pattern and an "arcane" pattern — dark canvas (#1a1a2e or similar) with a subtle tileable tribal/arcane linework at very low opacity (5–10%) — are alternative styles selectable by the user via project settings (`display.canvas_background`). All three render as backgrounds behind the same node/edge components.
 
-Node positions on the canvas follow an auto-layout algorithm (dagre/elkjs for DAG-aware hierarchical layout) with manual drag-to-reposition override. Positions are persisted locally and gitignored, as they are a personal display preference, not shared knowledge.
+Node positions on the canvas follow a DAG-aware hierarchical auto-layout algorithm (engine candidates and trade-offs in §9.2) whose `(x, y)` output is fed to Svelte Flow as initial node positions. Users can manually drag-reposition nodes afterward; positions are persisted locally and gitignored, as they are a personal display preference, not shared knowledge.
 
 ### 6.2 Side Panel
 
@@ -276,7 +277,7 @@ When no filter is active (or explicitly toggled), the panel shows all node title
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Click symbiotic relation node** | Open the relation expression editor panel. This panel should highlight all the possible logical operators (AND, OR, NOT, IMPLIES, IFF) |
 
-The symbiotic relation node is rendered at approximately 1/10th the size of the parent node, attached to the incoming-edge side. It displays a compact form of the expression. Its visual state reflects validity — neutral when valid, red when the expression is broken.
+The symbiotic relation node is rendered as a small unlabeled circle, approximately 1/10th the size of the parent node, attached to the incoming-edge side. Its visual state reflects validity — neutral fill when valid, red fill when the expression is broken or invalid. The expression itself is shown only inside the relation editor panel (with node titles substituted for IDs), never on the canvas.
 
 ### 6.6 Tracing
 
@@ -287,21 +288,30 @@ Pressing Escape or clicking empty canvas space clears tracing highlights.
 
 ### 6.7 Visual States
 
-Nodes are rendered as **custom sphere sprites** (pre-rendered PNG assets with transparency). Each node state has a distinct sprite variant:
+Main nodes are rendered as **Liam ERD-style cards**: a clean rectangular card with a header strip carrying the type icon and the node's title. Edges attach to handles on the card's left/right sides. State is communicated through card-level CSS treatments — color accents and selection rings — rather than per-state bespoke artwork.
 
-| State                  | Visual Treatment                                                                                                              |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Axiom (current)**    | Solid polished sphere — dark glass with a faint inner glow. Feels grounded, foundational.                                    |
-| **Deduction (current)**| Similar sphere but with a subtle luminous core — suggesting derived/synthesized knowledge. Slightly more translucent.          |
-| **Stale (needs review)**| Hairline cracks appear on the sphere surface with light leaking through. Amber/warm glow through the cracks.                 |
-| **Broken dependency**  | Full shattered glass effect — sphere fragments held in shape but clearly fractured. Red/crimson light bleeding through cracks. |
-| **Selected/Active**    | Bright ring or halo around the node in the accent color. Subtle pulse animation.                                              |
+**State styling — three candidate approaches** (decision deferred to implementation; the spec lists all three so trade-offs can be evaluated against real card mockups):
 
-**Edges** are custom-designed (not plain lines). Default: thin luminous lines in a muted accent color. Stale paths may use a cracking texture or dashed/flickering style. Selected/traced edges render at full brightness with a slight glow/bloom.
+1. **Left-border accent.** A vertical color strip on the left edge of the card. Light visual weight; common in notification/callout UIs (Bootstrap, Material, GitHub).
+2. **Header-strip tint.** The header strip's background color shifts to communicate state. Matches Liam ERD's actual pattern — a single visual element does the state work and integrates with the type icon already in the header.
+3. **Full border tint.** Color the entire card's border. Loudest, hardest to miss, but visually heavier and may compete with the selection ring.
 
-**Relation nodes** are rendered as smaller geometric shapes (faceted gem, diamond, or teardrop) at ~1/10th the size of the parent node, using the same material language as the spheres.
+Whichever option is chosen, the state-to-color mapping is consistent:
 
-**Distance-based blur**: When a broken dependency filter is active, nodes receive a **shadow/blur behind them** with intensity proportional to their distance from the source of change — matching the opacity gradient shown in the side panel's circle indicators.
+| State                  | Color                  |
+| ---------------------- | ---------------------- |
+| Axiom (current)        | Neutral — no accent    |
+| Deduction (current)    | Neutral — no accent    |
+| Stale (needs review)   | Warm amber             |
+| Broken dependency      | Red                    |
+
+**Selected / Active** is independent of the state styling above: an accent-colored ring/outline around the entire card, with a subtle pulse animation when triggered via panel hover. The selection ring is orthogonal to all three candidates, so each one supports it cleanly.
+
+**Edges** use Svelte Flow's edge components, styled to thin lines in a muted accent color with arrow markers pointing from dependency → dependent. Stale edges (where the source node is stale) render with a dashed style. Selected/traced edges render at full opacity with the accent color; non-selected edges dim during trace mode.
+
+**Symbiotic relation nodes** (see §6.5) are small unlabeled circles rendered as a separate custom Svelte Flow node type. They share the accent vocabulary — neutral fill when valid, red fill when broken.
+
+**Distance-based shadow**: When the broken-dependency filter is active in the side panel, cards on the canvas receive a CSS `box-shadow` whose intensity is proportional to their distance from the source of change — matching the opacity gradient shown next to titles in the side panel's circle indicators.
 
 ### 6.8 Undo/Redo
 
@@ -355,14 +365,21 @@ The data format is git-native, so collaboration can happen through standard git 
 
 ### 9.2 Frontend
 
-The frontend runs inside Tauri's webview layer using **Svelte 5** + **Vite** + **TypeScript**. The UI is split into two rendering zones:
+The frontend runs inside Tauri's webview layer using **Svelte 5** + **Vite** + **TypeScript**. The graph canvas is rendered with **Svelte Flow** (`@xyflow/svelte`), a DOM-based graph rendering library — the Svelte port of React Flow, both maintained under the `xyflow` umbrella. Visual reference: [Liam ERD](https://liambx.com/) — clean card-style nodes, handle-based edge endpoints, polished pan/zoom interactions. Only the visual language is borrowed; no code is lifted (Liam ERD itself is React Flow-based; the libraries are API-similar but separate packages).
 
-- **Graph canvas**: Rendered with **Pixi.js** (WebGL). Handles sprite-based node rendering, edge drawing, filters (glow, blur, bloom), and pan/zoom. Node visuals are pre-rendered PNG assets from the designer, not programmatic shapes.
-- **App UI (side panel, editor, settings, dialogs)**: Standard Svelte 5 components (HTML/CSS). Handles all text-based UI, forms, search, filters, and the markdown editor panel.
+- **Graph canvas (Svelte Flow)**: A custom Svelte Flow node component for main knowledge nodes (Liam-ERD-style card with a header strip carrying type icon + title; state styling per §6.7). A separate custom node type for symbiotic relation nodes (small unlabeled circle). Customized Svelte Flow edge components with arrow markers and accent-colored styling. Pan/zoom/drag/selection/minimap come built-in.
+- **App UI (side panel, editor, settings, dialogs)**: Standard Svelte 5 components (HTML/CSS). Handles all text-based chrome, forms, search, filters, and the markdown editor panel.
 
-**Communication**: A Svelte store holds the graph state. The side panel reads/writes it. The Pixi.js canvas observes it and renders accordingly. Clicks on Pixi sprites dispatch events back to the store, keeping both zones in sync.
+**Why Svelte Flow (not Pixi.js)**: An earlier draft of this spec specified Pixi.js + WebGL with custom sphere sprites. After surveying showcase projects — Liam ERD in particular — the DOM-based card aesthetic is a better fit for a knowledge-graph tool than bespoke artwork: readable nodes at any zoom level, real accessibility and copy-paste, and CSS-driven state styling instead of swapping pre-rendered PNG variants. The expected node count is 10–1000 (typically ~100), well within Svelte Flow's comfort zone, so WebGL's performance ceiling is unnecessary.
 
-**Layout engine**: Initial node positioning uses **dagre** or **elkjs** (DAG-aware layout algorithms that produce (x,y) coordinates). Users can manually drag-reposition nodes after auto-layout. Positions are persisted locally and gitignored.
+**Communication**: A Svelte store holds the graph state. The side panel reads/writes it. Svelte Flow observes it (via reactive `$nodes` / `$edges` stores) and renders accordingly. Node and edge interactions dispatch events back to the store, keeping panel and canvas in sync.
+
+**Layout engine**: Initial node positioning uses a DAG-aware hierarchical layout algorithm whose `(x, y)` output is fed into Svelte Flow as initial node positions. Two strong candidates (decision at implementation time):
+
+- **elkjs** — the JavaScript port of Eclipse Layout Kernel. Liam ERD uses elkjs (specifically the `layered` algorithm — verified in their repo at `frontend/packages/erd-core/src/features/erd/utils/computeAutoLayout/`), so this is the closest path to matching Liam's behavior on canvas.
+- **dagre** — simpler API, smaller bundle, widely used across the React/Svelte Flow ecosystems. Often sufficient for hierarchical DAG layouts and easier to drop in.
+
+Users can manually drag-reposition nodes after auto-layout. Positions are persisted locally and gitignored.
 
 ### 9.3 Markdown Editor
 
